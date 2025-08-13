@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, render_template_string
 import os
 
 # Create Flask app with template and static folders pointing to parent directory
@@ -55,22 +55,101 @@ def mock_license_validation(license_number, state):
 @app.route('/')
 def home():
     """Serve the main BlueDwarf homepage"""
-    return send_from_directory('..', 'bluedwarf_final_fixed.html')
+    try:
+        return send_from_directory('..', 'bluedwarf_final_fixed.html')
+    except Exception as e:
+        return f"<h1>BlueDwarf Platform</h1><p>Welcome to BlueDwarf! The main page is loading...</p><p>Error: {str(e)}</p>"
 
 @app.route('/about')
 def about():
-    """Serve the about page"""
-    return send_from_directory('..', 'about.html')
+    """Serve the about page - create a simple HTML response since the file is a webp image"""
+    about_html = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>About - BlueDwarf Platform</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+            .container { max-width: 800px; margin: 0 auto; }
+            h1 { color: #2c3e50; }
+            .nav { margin-bottom: 30px; }
+            .nav a { margin-right: 20px; text-decoration: none; color: #3498db; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="nav">
+                <a href="/">Home</a>
+                <a href="/about">About</a>
+                <a href="/contact">Contact</a>
+                <a href="/signup">Sign Up</a>
+            </div>
+            <h1>About BlueDwarf Platform</h1>
+            <p>BlueDwarf is a comprehensive property analysis platform that provides professional verification services for real estate professionals.</p>
+            <h2>Our Services</h2>
+            <ul>
+                <li>Document Verification</li>
+                <li>Identity Verification</li>
+                <li>License Validation</li>
+                <li>Property Analysis</li>
+            </ul>
+            <p>Our platform uses advanced AI and machine learning technologies to ensure accurate and reliable verification processes.</p>
+        </div>
+    </body>
+    </html>
+    """
+    return about_html
 
 @app.route('/contact')
 def contact():
-    """Serve the contact page"""
-    return send_from_directory('..', 'contact.html')
+    """Serve the contact page - create a simple HTML response since the file is a webp image"""
+    contact_html = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Contact - BlueDwarf Platform</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+            .container { max-width: 800px; margin: 0 auto; }
+            h1 { color: #2c3e50; }
+            .nav { margin-bottom: 30px; }
+            .nav a { margin-right: 20px; text-decoration: none; color: #3498db; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="nav">
+                <a href="/">Home</a>
+                <a href="/about">About</a>
+                <a href="/contact">Contact</a>
+                <a href="/signup">Sign Up</a>
+            </div>
+            <h1>Contact BlueDwarf Platform</h1>
+            <h2>Get in Touch</h2>
+            <p>We're here to help with all your property verification needs.</p>
+            <h3>Contact Information</h3>
+            <p><strong>Email:</strong> support@bluedwarf.com</p>
+            <p><strong>Phone:</strong> (555) 123-4567</p>
+            <p><strong>Business Hours:</strong> Monday - Friday, 9:00 AM - 6:00 PM EST</p>
+            <h3>Support</h3>
+            <p>For technical support or questions about our verification services, please don't hesitate to reach out.</p>
+        </div>
+    </body>
+    </html>
+    """
+    return contact_html
 
 @app.route('/signup')
 def signup():
     """Serve the signup page"""
-    return send_from_directory('..', 'signup.html')
+    try:
+        return send_from_directory('..', 'signup.html')
+    except Exception as e:
+        return f"<h1>Sign Up - BlueDwarf Platform</h1><p>Sign up page is loading...</p><p>Error: {str(e)}</p>"
 
 # --- API ENDPOINTS ---
 
@@ -79,7 +158,7 @@ def verify_document():
     """API endpoint for document verification"""
     try:
         # In a real app, you'd handle file upload here
-        file_path = request.json.get('file_path', '')
+        file_path = request.json.get('file_path', '') if request.json else ''
         result = mock_document_verification(file_path)
         return jsonify(result)
     except Exception as e:
@@ -89,8 +168,8 @@ def verify_document():
 def verify_identity():
     """API endpoint for facial recognition verification"""
     try:
-        id_photo = request.json.get('id_photo_path', '')
-        live_photo = request.json.get('live_photo_path', '')
+        id_photo = request.json.get('id_photo_path', '') if request.json else ''
+        live_photo = request.json.get('live_photo_path', '') if request.json else ''
         result = mock_facial_recognition(id_photo, live_photo)
         return jsonify(result)
     except Exception as e:
@@ -100,8 +179,8 @@ def verify_identity():
 def validate_license():
     """API endpoint for license validation"""
     try:
-        license_number = request.json.get('license_number', '')
-        state = request.json.get('state', '')
+        license_number = request.json.get('license_number', '') if request.json else ''
+        state = request.json.get('state', '') if request.json else ''
         result = mock_license_validation(license_number, state)
         return jsonify(result)
     except Exception as e:
