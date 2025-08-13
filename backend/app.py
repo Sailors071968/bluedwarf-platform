@@ -1,5 +1,10 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, send_from_directory
 import os
+
+# Create Flask app with template and static folders pointing to parent directory
+app = Flask(__name__, 
+            template_folder='../',  # Look for templates in parent directory
+            static_folder='../')    # Look for static files in parent directory
 
 # --- MOCK VERIFICATION FUNCTIONS ---
 # In a real application, these would call the actual verification scripts
@@ -33,92 +38,92 @@ def mock_facial_recognition(id_photo_path, live_photo_path):
     }
 
 def mock_license_validation(license_number, state):
-    """Simulates checking a license against a state database."""
+    """Simulates license validation against state database."""
     if not license_number or not state:
-        return {"status": "failed", "reason": "Missing license number or state."}
+        return {"status": "failed", "reason": "Missing license information."}
     return {
         "status": "success",
-        "license_status": "Active",
-        "is_in_good_standing": True
+        "is_valid": True,
+        "license_holder": "John Doe",
+        "issue_date": "2021-01-15",
+        "expiration_date": "2026-12-31",
+        "license_type": "Professional Real Estate License"
     }
 
-
-# --- FLASK APPLICATION SETUP ---
-
-app = Flask(__name__, template_folder='../', static_folder='../static') # Point to root for templates
-
-# --- WEBSITE ROUTES ---
+# --- ROUTES ---
 
 @app.route('/')
-def index():
-    return render_template('bluedwarf_final_fixed.html')
+def home():
+    """Serve the main BlueDwarf homepage"""
+    return send_from_directory('..', 'bluedwarf_final_fixed.html')
 
 @app.route('/about')
 def about():
-    # Assuming the about file is named this way in the root
-    return render_template('about_html_2025-08-12_19-38-29_9887.html')
+    """Serve the about page"""
+    return send_from_directory('..', 'about.html')
 
 @app.route('/contact')
 def contact():
-    # Assuming the contact file is named this way in the root
-    return render_template('contact_html_2025-08-12_19-38-41_6660.html')
+    """Serve the contact page"""
+    return send_from_directory('..', 'contact.html')
 
 @app.route('/signup')
 def signup():
-    return render_template('signup.html')
+    """Serve the signup page"""
+    return send_from_directory('..', 'signup.html')
 
-# --- API ROUTES ---
+# --- API ENDPOINTS ---
 
-@app.route('/api/verify-professional', methods=['POST'])
-def verify_professional():
-    """
-    API endpoint to handle the full verification process for a professional.
-    This simulates the multi-step verification flow.
-    """
-    # In a real app, you'd handle file uploads securely
-    # For this mock, we'll just use placeholder paths
-    id_file = request.form.get('id_file_path', 'uploads/mock_id.png')
-    license_file = request.form.get('license_file_path', 'uploads/mock_license.png')
-    live_photo = request.form.get('live_photo_path', 'uploads/mock_live.png')
+@app.route('/api/verify-document', methods=['POST'])
+def verify_document():
+    """API endpoint for document verification"""
+    try:
+        # In a real app, you'd handle file upload here
+        file_path = request.json.get('file_path', '')
+        result = mock_document_verification(file_path)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
-    # Step 1: Verify Documents
-    id_verification_result = mock_document_verification(id_file)
-    if id_verification_result['status'] != 'success':
-        return jsonify({"error": "ID document verification failed.", "details": id_verification_result}), 400
+@app.route('/api/verify-identity', methods=['POST'])
+def verify_identity():
+    """API endpoint for facial recognition verification"""
+    try:
+        id_photo = request.json.get('id_photo_path', '')
+        live_photo = request.json.get('live_photo_path', '')
+        result = mock_facial_recognition(id_photo, live_photo)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
-    license_verification_result = mock_document_verification(license_file)
-    if license_verification_result['status'] != 'success':
-        return jsonify({"error": "Professional license verification failed.", "details": license_verification_result}), 400
+@app.route('/api/validate-license', methods=['POST'])
+def validate_license():
+    """API endpoint for license validation"""
+    try:
+        license_number = request.json.get('license_number', '')
+        state = request.json.get('state', '')
+        result = mock_license_validation(license_number, state)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
-    # Step 2: Facial Recognition
-    facial_match_result = mock_facial_recognition(id_file, live_photo)
-    if not facial_match_result.get('is_match'):
-        return jsonify({"error": "Facial recognition failed. Live photo does not match ID.", "details": facial_match_result}), 400
+@app.route('/api/health')
+def health_check():
+    """Health check endpoint"""
+    return jsonify({"status": "healthy", "service": "BlueDwarf Platform"})
 
-    # Step 3: State License Database Validation
-    license_details = license_verification_result.get("extracted_text", {})
-    license_number = license_details.get("license_number")
-    state = license_details.get("state")
-    db_validation_result = mock_license_validation(license_number, state)
-    if db_validation_result.get('license_status') != 'Active':
-        return jsonify({"error": "License is not active or in good standing.", "details": db_validation_result}), 400
+# --- ERROR HANDLERS ---
 
-    # If all checks pass:
-    final_response = {
-        "status": "success",
-        "message": "Professional verification completed successfully.",
-        "verification_summary": {
-            "document_authenticity": "Confirmed",
-            "facial_match": "Confirmed",
-            "license_status": "Active and Verified"
-        }
-    }
-    return jsonify(final_response), 200
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({"error": "Not found"}), 404
 
+@app.errorhandler(500)
+def internal_error(error):
+    return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == '__main__':
-    # For development, it's fine to run this way.
-    # For production, a proper WSGI server like Gunicorn should be used.
-    port = int(os.environ.get('PORT', 5001))
-    app.run(debug=True, host='0.0.0.0', port=port)
+    # Get port from environment variable or default to 5000
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
 
