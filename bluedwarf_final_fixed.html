@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlueDwarf - Property Analysis Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.4;
+            color: #1a1a1a;
+            background: #ffffff;
+        }
+
+        .navbar {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            padding: 1rem 0;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 2rem;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #667eea;
+            text-decoration: none;
+            letter-spacing: -0.5px;
+            cursor: pointer;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 2rem;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: #666;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: color 0.2s ease;
+            cursor: pointer;
+        }
+
+        .nav-links a:hover {
+            color: #667eea;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.6rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: #667eea;
+            border: 1px solid #e0e0e0;
+        }
+
+        .btn-outline:hover {
+            background: #f8f9ff;
+            border-color: #667eea;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a6fd8;
+        }
+
+        .btn-small {
+            padding: 0.4rem 1rem;
+            font-size: 0.8rem;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 8rem 0 4rem;
+            text-align: center;
+            color: white;
+        }
+
+        .hero-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            letter-spacing: -2px;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 3rem;
+            font-weight: 400;
+        }
+
+        .search-container {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            margin: 0 auto;
+            max-width: 600px;
+        }
+
+        .search-form {
+            display: flex;
+            gap: 1rem;
+            align-items: end;
+        }
+
+        .input-group {
+            flex: 1;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .search-btn {
+            padding: 1rem 2rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .search-btn:hover {
+            background: #5a6fd8;
+        }
+
+        .clear-btn {
+            padding: 1rem 1.5rem;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .clear-btn:hover {
+            background: #5a6268;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 4rem;
+            margin-top: 3rem;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: white;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-top: 0.5rem;
+        }
+
+        .section {
+            padding: 6rem 0;
+        }
+
+        .section-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        .section-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 3rem;
+            color: #333;
+        }
+
+        .professionals {
+            background: #fafbfc;
+        }
+
+        .professionals-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .professional-item {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            border-left: 4px solid #667eea;
+        }
+
+        .professional-title {
+            color: #667eea;
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .professional-location {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .professional-description {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .results-container {
+            display: none;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .map-container {
+            width: 100%;
+            height: 150px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .large-map-container {
+            width: 100%;
+            height: 300px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .property-number {
+            position: absolute;
+            top: -8px;
+            left: -8px;
+            background: #ff9800;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 12px;
+            z-index: 10;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 2% auto;
+            padding: 2rem;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            position: absolute;
+            right: 1rem;
+            top: 1rem;
+        }
+
+        .close:hover {
+            color: #000;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: border-color 0.2s ease;
+        }
+
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        /* Mobile responsive styles */
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .hero h1 { font-size: 2.5rem; }
+            .search-form {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+            .input-group {
+                width: 100%;
+                margin-bottom: 1rem;
+            }
+            .search-btn, .clear-btn {
+                width: 100%;
+                max-width: 300px;
+                margin: 0.5rem 0;
+            }
+            .stats {
+                flex-direction: column;
+                gap: 2rem;
+            }
+            .professionals-list {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="#" class="logo" onclick="scrollToTop()">🏠 BlueDwarf</a>
+            <ul class="nav-links">
+                <li><a href="#" onclick="scrollToSection('professionals')">Professionals</a></li>
+                <li><a href="about.html">About</a></li>
+                <li><a href="contact.html">Contact</a></li>
+            </ul>
+            <div class="nav-buttons">
+                <button class="btn btn-outline" onclick="openLoginModal()">Login</button>
+                <button class="btn btn-primary" onclick="scrollToSearchForm()">Get Started</button>
+            </div>
+        </div>
+    </nav>
+
+    <section class="hero" id="hero">
+        <div class="hero-container">
+            <h1>🏠 Property Analysis</h1>
+            <p>Instant Data • Full US Coverage</p>
+            
+            <div class="search-container" id="searchContainer">
+                <form class="search-form" id="searchForm">
+                    <div class="input-group">
+                        <label for="address">Address</label>
+                        <input 
+                            type="text" 
+                            id="address" 
+                            class="search-input" 
+                            placeholder="123 Pine Street, Any City, WA, 54321"
+                            required
+                        >
+                    </div>
+                    <button type="submit" class="search-btn">Search</button>
+                    <button type="button" class="clear-btn" onclick="clearForm()">Clear</button>
+                </form>
+            </div>
+
+            <div class="stats">
+                <div class="stat">
+                    <span class="stat-number">10,000+</span>
+                    <div class="stat-label">Properties</div>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">500+</span>
+                    <div class="stat-label">Professionals</div>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">95%</span>
+                    <div class="stat-label">Accuracy</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="results-container" id="resultsContainer">
+        <div class="loading" id="loadingMessage">
+            <span class="spinner"></span>
+            Property Data Loading...
+        </div>
+        <div id="resultsContent"></div>
+    </div>
+
+    <section class="section professionals" id="professionals">
+        <div class="section-container">
+            <h2 class="section-title">Local Professionals</h2>
+            <div class="professionals-list">
+                <div class="professional-item">
+                    <div class="professional-title">Real Estate Agent</div>
+                    <div class="professional-location">Sacramento County, CA</div>
+                    <div class="professional-description">Experienced agent specializing in residential properties and first-time buyers</div>
+                    <button class="btn btn-primary btn-small" onclick="searchProfessional('Real Estate Agent', '95628')">Website</button>
+                </div>
+                <div class="professional-item">
+                    <div class="professional-title">Mortgage Lender</div>
+                    <div class="professional-location">Fair Oaks, CA</div>
+                    <div class="professional-description">Specialized in home loans and refinancing with competitive rates</div>
+                    <button class="btn btn-primary btn-small" onclick="searchProfessional('Mortgage Lender', '95628')">Website</button>
+                </div>
+                <div class="professional-item">
+                    <div class="professional-title">Real Estate Attorney</div>
+                    <div class="professional-location">Sacramento, CA</div>
+                    <div class="professional-description">Expert in real estate transactions and contract negotiations</div>
+                    <button class="btn btn-primary btn-small" onclick="searchProfessional('Real Estate Attorney', '95814')">Website</button>
+                </div>
+                <div class="professional-item">
+                    <div class="professional-title">Property Inspector</div>
+                    <div class="professional-location">Placer County, CA</div>
+                    <div class="professional-description">Certified home inspector with comprehensive inspection services</div>
+                    <button class="btn btn-primary btn-small" onclick="searchProfessional('Property Inspector', '95628')">Website</button>
+                </div>
+                <div class="professional-item">
+                    <div class="professional-title">Insurance Agent</div>
+                    <div class="professional-location">Roseville, CA</div>
+                    <div class="professional-description">Home and auto insurance specialist with competitive coverage options</div>
+                    <button class="btn btn-primary btn-small" onclick="searchProfessional('Insurance Agent', '95678')">Website</button>
+                </div>
+                <div class="professional-item">
+                    <div class="professional-title">Property Manager</div>
+                    <div class="professional-location">Folsom, CA</div>
+                    <div class="professional-description">Professional property management services for residential and commercial properties</div>
+                    <button class="btn btn-primary btn-small" onclick="searchProfessional('Property Manager', '95630')">Website</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeLoginModal()">&times;</span>
+            <h2 style="margin-bottom: 2rem; text-align: center;">Login to BlueDwarf</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="loginEmail">Email</label>
+                    <input type="email" id="loginEmail" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" name="password" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 1rem;">Login</button>
+                <p style="text-align: center; color: #666;">
+                    Don't have an account? <a href="#" onclick="openSignupModal()" style="color: #667eea;">Sign up here</a>
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Professional Signup Modal -->
+    <div id="signupModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeSignupModal()">&times;</span>
+            <h2 style="margin-bottom: 1.5rem; text-align: center;">Professional Registration</h2>
+            <form id="signupForm">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                    <div class="form-group">
+                        <label for="signupName">Full Name *</label>
+                        <input type="text" id="signupName" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="signupPhone">Phone *</label>
+                        <input type="tel" id="signupPhone" name="phone" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="signupEmail">Email *</label>
+                    <input type="email" id="signupEmail" name="email" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="signupAddress">Business Address *</label>
+                    <input type="text" id="signupAddress" name="address" placeholder="123 Main St, City, State, ZIP" required>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                    <div class="form-group">
+                        <label for="signupLicense">License Number</label>
+                        <input type="text" id="signupLicense" name="license" placeholder="Optional">
+                    </div>
+                    <div class="form-group">
+                        <label for="signupWebsite">Domain Name</label>
+                        <input type="text" id="signupWebsite" name="website" placeholder="yourcompany.com">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="signupProfession">Profession *</label>
+                    <select id="signupProfession" name="profession" required>
+                        <option value="">Select profession</option>
+                        <option value="real-estate-agent">Real Estate Agent</option>
+                        <option value="mortgage-lender">Mortgage Lender</option>
+                        <option value="real-estate-attorney">Real Estate Attorney</option>
+                        <option value="property-inspector">Property Inspector</option>
+                        <option value="insurance-agent">Insurance Agent</option>
+                        <option value="property-manager">Property Manager</option>
+                        <option value="contractor">General Contractor</option>
+                        <option value="appraiser">Property Appraiser</option>
+                        <option value="title-company">Title Company</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="signupZipCodes">Service ZIP Codes *</label>
+                    <textarea id="signupZipCodes" name="zipCodes" rows="2" placeholder="95628, 95814, 95630" required></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="signupPassword">Password *</label>
+                    <input type="password" id="signupPassword" name="password" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-bottom: 1rem;">Register</button>
+                <p style="text-align: center; color: #666; font-size: 0.8rem;">
+                    Already have an account? <a href="#" onclick="openLoginModal(); closeSignupModal();" style="color: #667eea;">Login here</a>
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <footer style="background: #667eea; color: white; text-align: center; padding: 2rem;">
+        <p>&copy; 2024 Elite Marketing Lab LLC. All rights reserved. | EIN: 99-0948389</p>
+        <p>912 1/2 J Street, Sacramento, CA 95814 | support@bluedwarf.io</p>
+    </footer>
+
+    <script>
+        let currentAddress = '';
+        
+        function scrollToSection(sectionId) {
+            const element = document.getElementById(sectionId);
+            if (element) {
+                element.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start' 
+                });
+            }
+        }
+        
+        function scrollToTop() {
+            window.scrollTo({ 
+                top: 0, 
+                behavior: 'smooth' 
+            });
+        }
+        
+        function scrollToSearchForm() {
+            const searchContainer = document.getElementById('searchContainer');
+            if (searchContainer) {
+                searchContainer.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center' 
+                });
+                setTimeout(() => {
+                    const addressInput = document.getElementById('address');
+                    if (addressInput) {
+                        addressInput.focus();
+                    }
+                }, 1000);
+            }
+        }
+        
+        function searchProfessional(category, zipCode) {
+            const searchQuery = encodeURIComponent(category + ' ' + zipCode);
+            window.open('https://www.google.com/search?q=' + searchQuery, '_blank');
+        }
+        
+        function openLoginModal() {
+            document.getElementById('loginModal').style.display = 'block';
+        }
+        
+        function closeLoginModal() {
+            document.getElementById('loginModal').style.display = 'none';
+        }
+        
+        function openSignupModal() {
+            closeLoginModal();
+            document.getElementById('signupModal').style.display = 'block';
+        }
+        
+        function closeSignupModal() {
+            document.getElementById('signupModal').style.display = 'none';
+        }
+        
+        window.onclick = function(event) {
+            const loginModal = document.getElementById('loginModal');
+            const signupModal = document.getElementById('signupModal');
+            
+            if (event.target == loginModal) {
+                loginModal.style.display = 'none';
+            }
+            if (event.target == signupModal) {
+                signupModal.style.display = 'none';
+            }
+        }
+        
+        document.getElementById('searchForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const address = document.getElementById('address').value.trim();
+            if (!address) return;
+            
+            currentAddress = address;
+            const resultsContainer = document.getElementById('resultsContainer');
+            const loadingMessage = document.getElementById('loadingMessage');
+            const resultsContent = document.getElementById('resultsContent');
+            
+            resultsContainer.style.display = 'block';
+            loadingMessage.style.display = 'block';
+            resultsContent.innerHTML = '';
+            
+            setTimeout(() => {
+                resultsContainer.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start' 
+                });
+            }, 300);
+            
+            try {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                const mockData = {
+                    property: {
+                        address: address,
+                        price: '$500,000',
+                        beds: 4,
+                        baths: 2,
+                        sqft: '1,492',
+                        yearBuilt: 1964,
+                        monthlyRent: '$3,000',
+                        lowEstimate: '$2,700',
+                        highEstimate: '$3,300'
+                    }
+                };
+                
+                displayResults(mockData);
+            } catch (error) {
+                console.error('Error:', error);
+                resultsContent.innerHTML = '<div style="text-align: center; padding: 2rem; background: #fff3cd; border-radius: 8px; margin: 1rem 0;"><p style="color: #856404; font-weight: 600;">Error analyzing property. Please try again.</p></div>';
+            } finally {
+                loadingMessage.style.display = 'none';
+            }
+        });
+        
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            alert('Login functionality will be available soon. Thank you for your interest!');
+            closeLoginModal();
+        });
+        
+        document.getElementById('signupForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            alert('Professional registration submitted! We will review your application and contact you soon.');
+            closeSignupModal();
+        });
+        
+        function displayResults(data) {
+            const resultsContent = document.getElementById('resultsContent');
+            const property = data.property;
+            
+            resultsContent.innerHTML = '<div style="background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 4px 20px rgba(0,0,0,0.1); margin: 1rem 0;">' +
+                '<h2 style="font-size: 2rem; font-weight: 700; color: #333; margin-bottom: 2rem; text-align: center;">' + property.address + '</h2>' +
+                '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">' +
+                    '<div>' +
+                        '<h3 style="font-size: 1.5rem; font-weight: 600; color: #667eea; margin-bottom: 1rem;">Property Details</h3>' +
+                        '<div style="background: #f8f9ff; padding: 1.5rem; border-radius: 8px;">' +
+                            '<p style="margin-bottom: 0.5rem;"><strong>Estimated Value:</strong> ' + property.price + '</p>' +
+                            '<p style="margin-bottom: 0.5rem;"><strong>Bedrooms:</strong> ' + property.beds + '</p>' +
+                            '<p style="margin-bottom: 0.5rem;"><strong>Bathrooms:</strong> ' + property.baths + '</p>' +
+                            '<p style="margin-bottom: 0.5rem;"><strong>Square Feet:</strong> ' + property.sqft + '</p>' +
+                            '<p style="margin-bottom: 0.5rem;"><strong>Year Built:</strong> ' + property.yearBuilt + '</p>' +
+                            '<p style="margin-bottom: 0.5rem;"><strong>Monthly Rent Est:</strong> ' + property.monthlyRent + '</p>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div style="display: flex; flex-direction: column; gap: 1rem;">' +
+                        '<div style="background: #e8f4fd; padding: 1rem; border-radius: 8px; text-align: center;">' +
+                            '<h4 style="color: #0066cc; margin-bottom: 0.5rem;">Street View</h4>' +
+                            '<div id="streetView" class="map-container"></div>' +
+                        '</div>' +
+                        '<div style="background: #e8f4fd; padding: 1rem; border-radius: 8px; text-align: center;">' +
+                            '<h4 style="color: #0066cc; margin-bottom: 0.5rem;">Aerial View (2 blocks)</h4>' +
+                            '<div id="aerialView" class="map-container"></div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div style="background: #fff8e1; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;">' +
+                    '<h3 style="color: #f57c00; margin-bottom: 1rem;">Comparable Properties</h3>' +
+                    '<p style="color: #666; margin-bottom: 1rem;">Based on rentals within a 1.5 mile radius seen in the last 270 days.</p>' +
+                    '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">' +
+                        '<div style="background: white; padding: 1rem; border-radius: 6px; border-left: 4px solid #ff9800; position: relative;">' +
+                            '<div class="property-number">1</div>' +
+                            '<p style="font-weight: 600; margin-left: 20px;">8155 Oahu Dr</p>' +
+                            '<p style="color: #666; margin-left: 20px;">Fair Oaks, CA 95628</p>' +
+                            '<p style="color: #667eea; font-weight: 600; margin-left: 20px;">$2,700 • 3 bed, 2 bath</p>' +
+                        '</div>' +
+                        '<div style="background: white; padding: 1rem; border-radius: 6px; border-left: 4px solid #ff9800; position: relative;">' +
+                            '<div class="property-number">2</div>' +
+                            '<p style="font-weight: 600; margin-left: 20px;">5139 Mauna Loa Ct</p>' +
+                            '<p style="color: #666; margin-left: 20px;">Fair Oaks, CA 95628</p>' +
+                            '<p style="color: #667eea; font-weight: 600; margin-left: 20px;">$2,995 • 4 bed, 2 bath</p>' +
+                        '</div>' +
+                        '<div style="background: white; padding: 1rem; border-radius: 6px; border-left: 4px solid #ff9800; position: relative;">' +
+                            '<div class="property-number">3</div>' +
+                            '<p style="font-weight: 600; margin-left: 20px;">5639 Beech Ave</p>' +
+                            '<p style="color: #666; margin-left: 20px;">Orangevale, CA 95662</p>' +
+                            '<p style="color: #667eea; font-weight: 600; margin-left: 20px;">$2,879 • 3 bed, 2 bath</p>' +
+                        '</div>' +
+                        '<div style="background: white; padding: 1rem; border-radius: 6px; border-left: 4px solid #ff9800; position: relative;">' +
+                            '<div class="property-number">4</div>' +
+                            '<p style="font-weight: 600; margin-left: 20px;">8130 Treecrest Ave</p>' +
+                            '<p style="color: #666; margin-left: 20px;">Fair Oaks, CA 95628</p>' +
+                            '<p style="color: #667eea; font-weight: 600; margin-left: 20px;">$2,500 • 3 bed, 1 bath</p>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div style="text-align: center;">' +
+                    '<button onclick="toggleDetails()" id="detailsBtn" style="background: #667eea; color: white; border: none; padding: 1rem 2rem; border-radius: 8px; font-weight: 600; cursor: pointer;">View Details</button>' +
+                '</div>' +
+                '<div id="additionalDetails" style="display: none; margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #eee;">' +
+                    '<div style="background: #f0f8ff; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;">' +
+                        '<h3 style="color: #0066cc; margin-bottom: 1rem;">Estimated Monthly Rent: ' + property.monthlyRent + '</h3>' +
+                        '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">' +
+                            '<span style="font-weight: 600;">Low Estimate</span>' +
+                            '<span style="font-weight: 600;">High Estimate</span>' +
+                        '</div>' +
+                        '<div style="background: linear-gradient(to right, #4CAF50, #2196F3); height: 8px; border-radius: 4px; margin-bottom: 0.5rem;"></div>' +
+                        '<div style="display: flex; justify-content: space-between;">' +
+                            '<span style="color: #4CAF50; font-weight: 600;">' + property.lowEstimate + '</span>' +
+                            '<span style="color: #2196F3; font-weight: 600;">' + property.highEstimate + '</span>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px;">' +
+                        '<h3 style="margin-bottom: 1rem;">Comparable Properties Map</h3>' +
+                        '<p style="color: #666; margin-bottom: 1rem; font-size: 0.9rem;">Map shows the general area of comparable properties listed above.</p>' +
+                        '<div id="comparableMap" class="large-map-container"></div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+            
+            setTimeout(() => {
+                initializeMaps(currentAddress);
+            }, 100);
+        }
+        
+        function initializeMaps(address) {
+            const streetViewContainer = document.getElementById('streetView');
+            if (streetViewContainer) {
+                const encodedAddress = encodeURIComponent(address);
+                streetViewContainer.innerHTML = '<iframe width="100%" height="150" frameborder="0" style="border:0; border-radius: 8px;" src="https://maps.google.com/maps?q=' + encodedAddress + '&layer=c&output=embed" allowfullscreen></iframe>';
+            }
+            
+            const aerialViewContainer = document.getElementById('aerialView');
+            if (aerialViewContainer) {
+                const encodedAddress = encodeURIComponent(address);
+                aerialViewContainer.innerHTML = '<iframe width="100%" height="150" frameborder="0" style="border:0; border-radius: 8px;" src="https://maps.google.com/maps?q=' + encodedAddress + '&t=k&z=18&output=embed" allowfullscreen></iframe>';
+            }
+            
+            const comparableMapContainer = document.getElementById('comparableMap');
+            if (comparableMapContainer) {
+                const mapUrl = 'https://maps.google.com/maps?q=Fair+Oaks+CA+95628&t=m&z=14&output=embed';
+                comparableMapContainer.innerHTML = '<iframe width="100%" height="300" frameborder="0" style="border:0; border-radius: 8px;" src="' + mapUrl + '" allowfullscreen></iframe>';
+            }
+        }
+        
+        function toggleDetails() {
+            const details = document.getElementById('additionalDetails');
+            const btn = document.getElementById('detailsBtn');
+            
+            if (details.style.display === 'none') {
+                details.style.display = 'block';
+                btn.textContent = 'Hide Details';
+                setTimeout(() => {
+                    initializeMaps(currentAddress);
+                }, 100);
+            } else {
+                details.style.display = 'none';
+                btn.textContent = 'View Details';
+            }
+        }
+        
+        function clearForm() {
+            document.getElementById('address').value = '';
+            document.getElementById('resultsContainer').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
+
