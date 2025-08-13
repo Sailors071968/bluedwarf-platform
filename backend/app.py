@@ -1,16 +1,11 @@
-from flask import Flask, render_template_string, request, jsonify, session, redirect, url_for
+from flask import Flask, render_template_string, request, redirect, url_for, session, jsonify
 import os
-import json
-from datetime import datetime
 
 app = Flask(__name__)
-app.secret_key = 'bluedwarf_secret_key_2025'
+app.secret_key = 'bluedwarf-secret-key-2025'
 
-# Enhanced Property Analysis Flask App with Google Street View, Comparables, and Aerial Maps
-
-@app.route('/')
-def home():
-    return render_template_string('''
+# Homepage template with cleaned up design
+HOME_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -23,15 +18,14 @@ def home():
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            display: flex;
-            flex-direction: column;
+            color: white;
         }
-        
+
         .header {
             display: flex;
             justify-content: space-between;
@@ -40,60 +34,57 @@ def home():
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
         }
-        
+
         .logo {
-            color: white;
             font-size: 1.5rem;
             font-weight: bold;
             text-decoration: none;
+            color: white;
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
-        
+
         .nav-buttons {
             display: flex;
             gap: 1rem;
         }
-        
+
         .nav-btn {
             padding: 0.75rem 1.5rem;
-            border: none;
             border-radius: 8px;
             text-decoration: none;
             font-weight: 500;
             transition: all 0.3s ease;
-            cursor: pointer;
         }
-        
+
         .login-btn {
             background: rgba(255, 255, 255, 0.2);
             color: white;
             border: 1px solid rgba(255, 255, 255, 0.3);
         }
-        
+
         .signup-btn {
             background: #ff6b6b;
             color: white;
         }
-        
+
         .nav-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
-        
+
         .main-content {
-            flex: 1;
             display: flex;
             flex-direction: column;
-            justify-content: center;
             align-items: center;
+            justify-content: center;
+            min-height: calc(100vh - 100px);
             padding: 2rem;
             text-align: center;
         }
-        
+
         .title {
-            color: white;
             font-size: 3rem;
             font-weight: bold;
             margin-bottom: 1rem;
@@ -101,116 +92,112 @@ def home():
             align-items: center;
             gap: 1rem;
         }
-        
+
         .subtitle {
-            color: rgba(255, 255, 255, 0.9);
             font-size: 1.2rem;
             margin-bottom: 3rem;
+            opacity: 0.9;
         }
-        
+
         .search-container {
-            background: white;
+            background: rgba(255, 255, 255, 0.95);
             padding: 2rem;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
             max-width: 600px;
             width: 100%;
         }
-        
+
         .search-form {
             display: flex;
             flex-direction: column;
-            gap: 1.5rem;
+            gap: 1rem;
         }
-        
+
         .search-input {
             padding: 1rem;
             border: 2px solid #e1e5e9;
-            border-radius: 12px;
+            border-radius: 8px;
             font-size: 1rem;
-            transition: border-color 0.3s ease;
-            width: 100%;
+            color: #333;
+            background: white;
         }
-        
+
         .search-input:focus {
             outline: none;
             border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
-        
+
         .button-group {
             display: flex;
             gap: 1rem;
         }
-        
+
         .search-btn, .clear-btn {
             flex: 1;
-            padding: 1rem 2rem;
+            padding: 1rem 3rem;
             border: none;
-            border-radius: 12px;
+            border-radius: 8px;
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
             min-width: 150px;
         }
-        
+
         .search-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #667eea;
             color: white;
         }
-        
+
         .clear-btn {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+            background: #ff6b6b;
             color: white;
         }
-        
+
         .search-btn:hover, .clear-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
-        
+
         .footer {
             text-align: center;
             padding: 2rem;
-            color: rgba(255, 255, 255, 0.8);
-            font-size: 0.9rem;
+            background: rgba(0, 0, 0, 0.1);
+            margin-top: auto;
         }
-        
+
         .footer a {
-            color: rgba(255, 255, 255, 0.9);
+            color: white;
             text-decoration: none;
         }
-        
+
         @media (max-width: 768px) {
-            .header {
-                padding: 1rem;
-            }
-            
             .title {
                 font-size: 2rem;
             }
             
-            .search-container {
-                margin: 0 1rem;
-            }
-            
             .button-group {
                 flex-direction: column;
+            }
+            
+            .search-btn, .clear-btn {
+                width: 100%;
             }
         }
     </style>
 </head>
 <body>
     <header class="header">
-        <a href="/" class="logo">
-            🏠 BlueDwarf
-        </a>
+        <a href="/" class="logo">🏠 BlueDwarf</a>
         <div class="nav-buttons">
             <a href="/login" class="nav-btn login-btn">Login</a>
             <a href="/signup" class="nav-btn signup-btn">Get Started</a>
         </div>
     </header>
-    
+
     <main class="main-content">
         <h1 class="title">
             🏠 Property Analysis
@@ -218,7 +205,7 @@ def home():
         <p class="subtitle">Instant Data • Full US Coverage</p>
         
         <div class="search-container">
-            <form class="search-form" action="/search" method="POST">
+            <form class="search-form" action="/property-results" method="POST">
                 <input 
                     type="text" 
                     name="address" 
@@ -233,29 +220,16 @@ def home():
             </form>
         </div>
     </main>
-    
+
     <footer class="footer">
-        © 2025 Elite Marketing Lab LLC. All rights reserved. | <a href="mailto:support@bluedwarf.io">support@bluedwarf.io</a>
+        <p>&copy; 2025 Elite Marketing Lab LLC. All rights reserved. | <a href="mailto:support@bluedwarf.io">support@bluedwarf.io</a></p>
     </footer>
 </body>
 </html>
-    ''')
+'''
 
-@app.route('/search', methods=['POST'])
-def search_property():
-    address = request.form.get('address', '')
-    if not address:
-        return redirect(url_for('home'))
-    
-    # Store the address in session for the results page
-    session['search_address'] = address
-    return redirect(url_for('property_results'))
-
-@app.route('/property-results')
-def property_results():
-    address = session.get('search_address', '123 Pine Street, Any City, WA, 54321')
-    
-    return render_template_string('''
+# Property Results template with corrected 6 rows x 2 columns professional listings
+PROPERTY_RESULTS_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -268,14 +242,14 @@ def property_results():
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             color: #333;
         }
-        
+
         .header {
             display: flex;
             justify-content: space-between;
@@ -283,215 +257,188 @@ def property_results():
             padding: 1rem 2rem;
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
-        }
-        
-        .logo {
             color: white;
+        }
+
+        .logo {
             font-size: 1.5rem;
             font-weight: bold;
             text-decoration: none;
+            color: white;
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }
-        
+
         .nav-buttons {
             display: flex;
             gap: 1rem;
         }
-        
+
         .nav-btn {
             padding: 0.75rem 1.5rem;
-            border: none;
             border-radius: 8px;
             text-decoration: none;
             font-weight: 500;
             transition: all 0.3s ease;
-            cursor: pointer;
+        }
+
+        .login-btn {
             background: rgba(255, 255, 255, 0.2);
             color: white;
             border: 1px solid rgba(255, 255, 255, 0.3);
         }
-        
-        .nav-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+
+        .signup-btn {
+            background: #ff6b6b;
+            color: white;
         }
-        
+
         .container {
-            max-width: 1400px;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 2rem;
         }
-        
+
         .property-header {
             background: white;
-            border-radius: 20px;
             padding: 2rem;
+            border-radius: 16px;
             margin-bottom: 2rem;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
         }
-        
+
         .property-title {
             font-size: 2rem;
             font-weight: bold;
-            color: #333;
             margin-bottom: 0.5rem;
+            color: #333;
         }
-        
+
         .property-subtitle {
             color: #666;
             font-size: 1.1rem;
         }
-        
+
         .content-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 2rem;
             margin-bottom: 2rem;
         }
-        
+
         .card {
             background: white;
-            border-radius: 20px;
-            padding: 2rem;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
         }
-        
+
         .card-title {
-            font-size: 1.5rem;
+            font-size: 1.3rem;
             font-weight: bold;
-            margin-bottom: 1.5rem;
-            color: #333;
+            margin-bottom: 1rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            color: #333;
         }
-        
-        .street-view-container {
+
+        .street-view-container, .aerial-view-container {
             width: 100%;
             height: 300px;
             border-radius: 12px;
             overflow: hidden;
-            background: #f0f0f0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
+            border: 2px solid #e1e5e9;
         }
-        
-        .street-view-placeholder {
-            color: #666;
-            text-align: center;
-        }
-        
-        .aerial-view-container {
+
+        .street-view-iframe, .aerial-view-iframe {
             width: 100%;
-            height: 300px;
-            border-radius: 12px;
-            overflow: hidden;
-            background: #f0f0f0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
+            height: 100%;
+            border: none;
         }
-        
-        .property-stats {
+
+        .property-details {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
         }
-        
-        .stat-item {
+
+        .detail-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
             text-align: center;
-            padding: 1rem;
-            background: #f8f9fa;
-            border-radius: 12px;
         }
-        
-        .stat-value {
-            font-size: 1.5rem;
+
+        .detail-value {
+            font-size: 1.8rem;
             font-weight: bold;
             color: #667eea;
+            margin-bottom: 0.5rem;
         }
-        
-        .stat-label {
-            font-size: 0.9rem;
+
+        .detail-label {
             color: #666;
-            margin-top: 0.25rem;
+            font-size: 0.9rem;
         }
-        
-        .rental-indicator {
-            margin-top: 1.5rem;
+
+        .rental-analysis {
+            background: white;
+            padding: 2rem;
+            border-radius: 16px;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
         }
-        
-        .rental-range {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-        
+
         .rental-bar {
-            flex: 1;
-            height: 8px;
+            width: 100%;
+            height: 20px;
             background: linear-gradient(to right, #4CAF50, #FFC107, #FF5722);
-            border-radius: 4px;
+            border-radius: 10px;
             position: relative;
+            margin: 1rem 0;
         }
-        
+
         .rental-marker {
             position: absolute;
-            top: -8px;
+            top: -5px;
+            left: 45%;
             width: 4px;
-            height: 24px;
+            height: 30px;
             background: #333;
             border-radius: 2px;
-            left: 65%;
         }
-        
+
         .rental-labels {
             display: flex;
             justify-content: space-between;
-            margin-top: 0.5rem;
             font-size: 0.9rem;
             color: #666;
         }
-        
+
         .comparables-section {
-            grid-column: 1 / -1;
+            background: white;
+            padding: 2rem;
+            border-radius: 16px;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
         }
-        
-        .comparables-grid {
-            display: grid;
-            grid-template-columns: 1fr 400px;
-            gap: 2rem;
-            margin-top: 1rem;
-        }
-        
-        .comparables-list {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-        
+
         .comparable-item {
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            gap: 1rem;
             padding: 1rem;
-            background: #f8f9fa;
-            border-radius: 12px;
-            transition: all 0.3s ease;
+            border-bottom: 1px solid #e1e5e9;
         }
-        
-        .comparable-item:hover {
-            background: #e9ecef;
-            transform: translateX(5px);
+
+        .comparable-item:last-child {
+            border-bottom: none;
         }
-        
+
         .comparable-number {
             width: 30px;
             height: 30px;
@@ -502,92 +449,131 @@ def property_results():
             align-items: center;
             justify-content: center;
             font-weight: bold;
+            margin-right: 1rem;
         }
-        
+
         .comparable-info {
             flex: 1;
         }
-        
+
         .comparable-address {
-            font-weight: 600;
-            color: #333;
+            font-weight: bold;
+            margin-bottom: 0.25rem;
         }
-        
+
         .comparable-details {
-            font-size: 0.9rem;
             color: #666;
-            margin-top: 0.25rem;
+            font-size: 0.9rem;
         }
-        
+
         .comparable-price {
-            font-size: 1.1rem;
+            font-size: 1.2rem;
             font-weight: bold;
             color: #667eea;
         }
-        
-        .map-container {
+
+        .comparables-map {
             width: 100%;
             height: 400px;
             border-radius: 12px;
             overflow: hidden;
-            background: #f0f0f0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            border: 2px solid #e1e5e9;
+            margin-top: 1rem;
         }
-        
-        .map-placeholder {
+
+        .professionals-section {
+            background: white;
+            padding: 2rem;
+            border-radius: 16px;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .professionals-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .professional-card {
+            border: 2px solid #e1e5e9;
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .professional-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .professional-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+
+        .professional-location {
             color: #666;
-            text-align: center;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
         }
-        
-        .back-button {
+
+        .professional-description {
+            color: #333;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            line-height: 1.4;
+        }
+
+        .professional-btn {
+            background: #667eea;
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .professional-btn:hover {
+            background: #5a6fd8;
+            transform: translateY(-1px);
+        }
+
+        .back-btn {
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            padding: 1rem 2rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #667eea;
             color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
             text-decoration: none;
-            border-radius: 12px;
-            font-weight: 600;
+            font-weight: 500;
             transition: all 0.3s ease;
             margin-top: 2rem;
         }
-        
-        .back-button:hover {
+
+        .back-btn:hover {
+            background: #5a6fd8;
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
         }
-        
-        @media (max-width: 1024px) {
+
+        @media (max-width: 768px) {
             .content-grid {
                 grid-template-columns: 1fr;
             }
             
-            .comparables-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .property-stats {
+            .property-details {
                 grid-template-columns: repeat(2, 1fr);
             }
-        }
-        
-        @media (max-width: 768px) {
-            .container {
-                padding: 1rem;
-            }
             
-            .property-header {
-                padding: 1.5rem;
-            }
-            
-            .card {
-                padding: 1.5rem;
-            }
-            
-            .property-stats {
+            .professionals-grid {
                 grid-template-columns: 1fr;
             }
         }
@@ -595,198 +581,243 @@ def property_results():
 </head>
 <body>
     <header class="header">
-        <a href="/" class="logo">
-            🏠 BlueDwarf
-        </a>
+        <a href="/" class="logo">🏠 BlueDwarf</a>
         <div class="nav-buttons">
-            <a href="/login" class="nav-btn">Login</a>
-            <a href="/signup" class="nav-btn">Get Started</a>
+            <a href="/login" class="nav-btn login-btn">Login</a>
+            <a href="/signup" class="nav-btn signup-btn">Get Started</a>
         </div>
     </header>
-    
+
     <div class="container">
         <div class="property-header">
             <h1 class="property-title">{{ address }}</h1>
             <p class="property-subtitle">Comprehensive Property Analysis Report</p>
         </div>
-        
+
         <div class="content-grid">
-            <!-- Street View -->
             <div class="card">
                 <h2 class="card-title">🏠 Street View</h2>
                 <div class="street-view-container">
                     <iframe 
-                        width="100%" 
-                        height="100%" 
-                        frameborder="0" 
-                        style="border:0"
-                        src="https://www.google.com/maps/embed/v1/streetview?key=YOUR_API_KEY&location={{ address|urlencode }}&heading=210&pitch=10&fov=75"
+                        class="street-view-iframe"
+                        src="https://www.google.com/maps/embed/v1/streetview?key=YOUR_GOOGLE_MAPS_API_KEY&location={{ address }}&heading=0&pitch=0&fov=75"
                         allowfullscreen>
                     </iframe>
                 </div>
             </div>
-            
-            <!-- Aerial Satellite View -->
+
             <div class="card">
-                <h2 class="card-title">🛰️ Aerial View</h2>
+                <h2 class="card-title">🛰️ Aerial View (2 blocks)</h2>
                 <div class="aerial-view-container">
                     <iframe 
-                        width="100%" 
-                        height="100%" 
-                        frameborder="0" 
-                        style="border:0"
-                        src="https://www.google.com/maps/embed/v1/view?key=YOUR_API_KEY&center={{ address|urlencode }}&zoom=17&maptype=satellite"
+                        class="aerial-view-iframe"
+                        src="https://www.google.com/maps/embed/v1/view?key=YOUR_GOOGLE_MAPS_API_KEY&center={{ address }}&zoom=17&maptype=satellite"
                         allowfullscreen>
                     </iframe>
-                </div>
-            </div>
-            
-            <!-- Property Overview -->
-            <div class="card">
-                <h2 class="card-title">📊 Property Overview</h2>
-                <div class="property-stats">
-                    <div class="stat-item">
-                        <div class="stat-value">$485,000</div>
-                        <div class="stat-label">Estimated Value</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value">3</div>
-                        <div class="stat-label">Bedrooms</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value">2.5</div>
-                        <div class="stat-label">Bathrooms</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value">2,150</div>
-                        <div class="stat-label">Sq Ft</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value">1985</div>
-                        <div class="stat-label">Year Built</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value">0.25</div>
-                        <div class="stat-label">Lot Size (Acres)</div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Market Analysis -->
-            <div class="card">
-                <h2 class="card-title">📈 Market Analysis</h2>
-                <div class="property-stats">
-                    <div class="stat-item">
-                        <div class="stat-value">$226</div>
-                        <div class="stat-label">Price per Sq Ft</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value">28</div>
-                        <div class="stat-label">Days on Market</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value">+5.2%</div>
-                        <div class="stat-label">YoY Appreciation</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value">Rising</div>
-                        <div class="stat-label">Market Trend</div>
-                    </div>
-                </div>
-                
-                <div class="rental-indicator">
-                    <h3>Rental Rate Analysis</h3>
-                    <div class="rental-range">
-                        <span>$1,800</span>
-                        <div class="rental-bar">
-                            <div class="rental-marker"></div>
-                        </div>
-                        <span>$3,200</span>
-                    </div>
-                    <div class="rental-labels">
-                        <span>Low</span>
-                        <span>Current: $2,450/month</span>
-                        <span>High</span>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Comparable Properties -->
-            <div class="card comparables-section">
-                <h2 class="card-title">🏘️ Comparable Properties</h2>
-                <div class="comparables-grid">
-                    <div class="comparables-list">
-                        <div class="comparable-item">
-                            <div class="comparable-number">1</div>
-                            <div class="comparable-info">
-                                <div class="comparable-address">456 Oak Avenue</div>
-                                <div class="comparable-details">3 bed • 2 bath • 2,080 sq ft • 0.3 mi</div>
-                            </div>
-                            <div class="comparable-price">$472,000</div>
-                        </div>
-                        
-                        <div class="comparable-item">
-                            <div class="comparable-number">2</div>
-                            <div class="comparable-info">
-                                <div class="comparable-address">789 Maple Street</div>
-                                <div class="comparable-details">4 bed • 3 bath • 2,340 sq ft • 0.4 mi</div>
-                            </div>
-                            <div class="comparable-price">$518,000</div>
-                        </div>
-                        
-                        <div class="comparable-item">
-                            <div class="comparable-number">3</div>
-                            <div class="comparable-info">
-                                <div class="comparable-address">321 Elm Drive</div>
-                                <div class="comparable-details">3 bed • 2.5 bath • 2,200 sq ft • 0.5 mi</div>
-                            </div>
-                            <div class="comparable-price">$495,000</div>
-                        </div>
-                        
-                        <div class="comparable-item">
-                            <div class="comparable-number">4</div>
-                            <div class="comparable-info">
-                                <div class="comparable-address">654 Cedar Lane</div>
-                                <div class="comparable-details">3 bed • 2 bath • 1,950 sq ft • 0.6 mi</div>
-                            </div>
-                            <div class="comparable-price">$458,000</div>
-                        </div>
-                        
-                        <div class="comparable-item">
-                            <div class="comparable-number">5</div>
-                            <div class="comparable-info">
-                                <div class="comparable-address">987 Birch Court</div>
-                                <div class="comparable-details">4 bed • 2.5 bath • 2,450 sq ft • 0.7 mi</div>
-                            </div>
-                            <div class="comparable-price">$535,000</div>
-                        </div>
-                    </div>
-                    
-                    <div class="map-container">
-                        <iframe 
-                            width="100%" 
-                            height="100%" 
-                            frameborder="0" 
-                            style="border:0"
-                            src="https://www.google.com/maps/embed/v1/view?key=YOUR_API_KEY&center={{ address|urlencode }}&zoom=15&maptype=roadmap"
-                            allowfullscreen>
-                        </iframe>
-                    </div>
                 </div>
             </div>
         </div>
-        
-        <a href="/" class="back-button">
-            ← Back to Search
-        </a>
+
+        <div class="property-details">
+            <div class="detail-card">
+                <div class="detail-value">$485,000</div>
+                <div class="detail-label">Estimated Value</div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-value">4</div>
+                <div class="detail-label">Bedrooms</div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-value">2</div>
+                <div class="detail-label">Bathrooms</div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-value">1,492</div>
+                <div class="detail-label">Square Feet</div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-value">1964</div>
+                <div class="detail-label">Year Built</div>
+            </div>
+            <div class="detail-card">
+                <div class="detail-value">$2,510</div>
+                <div class="detail-label">Monthly Rent Est</div>
+            </div>
+        </div>
+
+        <div class="rental-analysis">
+            <h2 class="card-title">📊 Rental Rate Analysis</h2>
+            <div class="rental-bar">
+                <div class="rental-marker"></div>
+            </div>
+            <div class="rental-labels">
+                <span>$1,800 Low</span>
+                <span>Current: $2,510/month</span>
+                <span>$3,200 High</span>
+            </div>
+        </div>
+
+        <div class="comparables-section">
+            <h2 class="card-title">🏘️ Comparable Properties</h2>
+            
+            <div class="comparable-item">
+                <div class="comparable-number">1</div>
+                <div class="comparable-info">
+                    <div class="comparable-address">456 Oak Avenue</div>
+                    <div class="comparable-details">3 bed • 2 bath • 2,080 sq ft • 0.3 mi</div>
+                </div>
+                <div class="comparable-price">$472,000</div>
+            </div>
+
+            <div class="comparable-item">
+                <div class="comparable-number">2</div>
+                <div class="comparable-info">
+                    <div class="comparable-address">789 Maple Street</div>
+                    <div class="comparable-details">4 bed • 3 bath • 2,340 sq ft • 0.4 mi</div>
+                </div>
+                <div class="comparable-price">$518,000</div>
+            </div>
+
+            <div class="comparable-item">
+                <div class="comparable-number">3</div>
+                <div class="comparable-info">
+                    <div class="comparable-address">321 Elm Drive</div>
+                    <div class="comparable-details">3 bed • 2.5 bath • 2,200 sq ft • 0.5 mi</div>
+                </div>
+                <div class="comparable-price">$495,000</div>
+            </div>
+
+            <div class="comparable-item">
+                <div class="comparable-number">4</div>
+                <div class="comparable-info">
+                    <div class="comparable-address">654 Cedar Lane</div>
+                    <div class="comparable-details">3 bed • 2 bath • 1,950 sq ft • 0.6 mi</div>
+                </div>
+                <div class="comparable-price">$458,000</div>
+            </div>
+
+            <div class="comparable-item">
+                <div class="comparable-number">5</div>
+                <div class="comparable-info">
+                    <div class="comparable-address">987 Birch Court</div>
+                    <div class="comparable-details">4 bed • 2.5 bath • 2,450 sq ft • 0.7 mi</div>
+                </div>
+                <div class="comparable-price">$535,000</div>
+            </div>
+
+            <!-- RentCast Comparables Map -->
+            <div class="comparables-map">
+                <iframe 
+                    src="https://www.google.com/maps/embed/v1/view?key=YOUR_GOOGLE_MAPS_API_KEY&center={{ address }}&zoom=15"
+                    width="100%" 
+                    height="100%" 
+                    style="border:0;" 
+                    allowfullscreen="" 
+                    loading="lazy">
+                </iframe>
+            </div>
+        </div>
+
+        <!-- Professional Listings Section - 6 rows x 2 columns -->
+        <div class="professionals-section">
+            <h2 class="card-title">👥 Local Professionals in {{ city }}, {{ state }}</h2>
+            <div class="professionals-grid">
+                <!-- Row 1 -->
+                <div class="professional-card">
+                    <div class="professional-title">Real Estate Agent</div>
+                    <div class="professional-location">{{ city }}, {{ state }}</div>
+                    <div class="professional-description">Experienced agent specializing in residential properties and first-time buyers</div>
+                    <button class="professional-btn">Website</button>
+                </div>
+
+                <div class="professional-card">
+                    <div class="professional-title">Real Estate Broker</div>
+                    <div class="professional-location">{{ city }}, {{ state }}</div>
+                    <div class="professional-description">Licensed broker with extensive market knowledge and investment expertise</div>
+                    <button class="professional-btn">Website</button>
+                </div>
+
+                <!-- Row 2 -->
+                <div class="professional-card">
+                    <div class="professional-title">Mortgage Lender</div>
+                    <div class="professional-location">{{ city }}, {{ state }}</div>
+                    <div class="professional-description">Specialized in home loans and refinancing with competitive rates</div>
+                    <button class="professional-btn">Website</button>
+                </div>
+
+                <div class="professional-card">
+                    <div class="professional-title">Real Estate Attorney</div>
+                    <div class="professional-location">{{ city }}, {{ state }}</div>
+                    <div class="professional-description">Expert in real estate transactions and contract negotiations</div>
+                    <button class="professional-btn">Website</button>
+                </div>
+
+                <!-- Row 3 -->
+                <div class="professional-card">
+                    <div class="professional-title">Property Inspector</div>
+                    <div class="professional-location">{{ city }}, {{ state }}</div>
+                    <div class="professional-description">Certified home inspector with comprehensive inspection services</div>
+                    <button class="professional-btn">Website</button>
+                </div>
+
+                <div class="professional-card">
+                    <div class="professional-title">Insurance Agent</div>
+                    <div class="professional-location">{{ city }}, {{ state }}</div>
+                    <div class="professional-description">Home and auto insurance specialist with competitive coverage options</div>
+                    <button class="professional-btn">Website</button>
+                </div>
+
+                <!-- Row 4 -->
+                <div class="professional-card">
+                    <div class="professional-title">General Contractor</div>
+                    <div class="professional-location">{{ city }}, {{ state }}</div>
+                    <div class="professional-description">Licensed contractor for home renovations and construction projects</div>
+                    <button class="professional-btn">Website</button>
+                </div>
+
+                <div class="professional-card">
+                    <div class="professional-title">Property Appraiser</div>
+                    <div class="professional-location">{{ city }}, {{ state }}</div>
+                    <div class="professional-description">Certified appraiser providing accurate property valuations</div>
+                    <button class="professional-btn">Website</button>
+                </div>
+
+                <!-- Row 5 -->
+                <div class="professional-card">
+                    <div class="professional-title">Structural Engineer</div>
+                    <div class="professional-location">{{ city }}, {{ state }}</div>
+                    <div class="professional-description">Professional engineer specializing in structural analysis and design</div>
+                    <button class="professional-btn">Website</button>
+                </div>
+
+                <div class="professional-card">
+                    <div class="professional-title">Escrow Officer</div>
+                    <div class="professional-location">{{ city }}, {{ state }}</div>
+                    <div class="professional-description">Experienced escrow professional ensuring smooth real estate transactions</div>
+                    <button class="professional-btn">Website</button>
+                </div>
+
+                <!-- Row 6 -->
+                <div class="professional-card">
+                    <div class="professional-title">Property Manager</div>
+                    <div class="professional-location">{{ city }}, {{ state }}</div>
+                    <div class="professional-description">Professional property management services for residential and commercial properties</div>
+                    <button class="professional-btn">Website</button>
+                </div>
+
+                <!-- Empty spot for 6x2 grid -->
+                <div style="visibility: hidden;"></div>
+            </div>
+        </div>
+
+        <a href="/" class="back-btn">← Back to Search</a>
     </div>
 </body>
 </html>
-    ''', address=address)
+'''
 
-@app.route('/login')
-def login():
-    return render_template_string('''
+# Login template
+LOGIN_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -799,51 +830,28 @@ def login():
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
-            flex-direction: column;
-        }
-        
-        .header {
-            display: flex;
-            justify-content: space-between;
             align-items: center;
-            padding: 1rem 2rem;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-        }
-        
-        .logo {
-            color: white;
-            font-size: 1.5rem;
-            font-weight: bold;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .main-content {
-            flex: 1;
-            display: flex;
             justify-content: center;
-            align-items: center;
-            padding: 2rem;
+            color: white;
         }
-        
+
         .login-container {
-            background: white;
+            background: rgba(255, 255, 255, 0.95);
             padding: 3rem;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
             max-width: 400px;
             width: 100%;
+            color: #333;
         }
-        
+
         .login-title {
             font-size: 2rem;
             font-weight: bold;
@@ -851,95 +859,101 @@ def login():
             margin-bottom: 2rem;
             color: #333;
         }
-        
+
         .form-group {
             margin-bottom: 1.5rem;
         }
-        
+
         .form-label {
             display: block;
             margin-bottom: 0.5rem;
-            font-weight: 600;
+            font-weight: 500;
             color: #333;
         }
-        
+
         .form-input {
             width: 100%;
             padding: 1rem;
             border: 2px solid #e1e5e9;
-            border-radius: 12px;
+            border-radius: 8px;
             font-size: 1rem;
-            transition: border-color 0.3s ease;
+            color: #333;
+            background: white;
         }
-        
+
         .form-input:focus {
             outline: none;
             border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
-        
+
         .login-btn {
             width: 100%;
             padding: 1rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #667eea;
             color: white;
             border: none;
-            border-radius: 12px;
+            border-radius: 8px;
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
         }
-        
+
         .login-btn:hover {
+            background: #5a6fd8;
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
         }
-        
-        .back-link {
-            display: block;
+
+        .signup-link {
             text-align: center;
-            margin-top: 2rem;
+            margin-top: 1.5rem;
+        }
+
+        .signup-link a {
             color: #667eea;
             text-decoration: none;
             font-weight: 500;
         }
-        
-        .back-link:hover {
-            text-decoration: underline;
+
+        .back-link {
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        .back-link a {
+            color: #666;
+            text-decoration: none;
         }
     </style>
 </head>
 <body>
-    <header class="header">
-        <a href="/" class="logo">
-            🏠 BlueDwarf
-        </a>
-    </header>
-    
-    <main class="main-content">
-        <div class="login-container">
-            <h1 class="login-title">Welcome Back</h1>
-            <form>
-                <div class="form-group">
-                    <label class="form-label">Email</label>
-                    <input type="email" class="form-input" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Password</label>
-                    <input type="password" class="form-input" required>
-                </div>
-                <button type="submit" class="login-btn">Sign In</button>
-            </form>
-            <a href="/" class="back-link">← Back to Home</a>
+    <div class="login-container">
+        <h1 class="login-title">Welcome Back</h1>
+        <form action="/login" method="POST">
+            <div class="form-group">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" id="email" name="email" class="form-input" required>
+            </div>
+            <div class="form-group">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" id="password" name="password" class="form-input" required>
+            </div>
+            <button type="submit" class="login-btn">Sign In</button>
+        </form>
+        <div class="signup-link">
+            <p>Don't have an account? <a href="/signup">Create Account</a></p>
         </div>
-    </main>
+        <div class="back-link">
+            <a href="/">← Back to Home</a>
+        </div>
+    </div>
 </body>
 </html>
-    ''')
+'''
 
-@app.route('/signup')
-def signup():
-    return render_template_string('''
+# Enhanced Signup template with professional verification
+SIGNUP_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -952,79 +966,43 @@ def signup():
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            padding: 2rem 0;
+            color: white;
+        }
+
+        .signup-container {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 3rem;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            max-width: 800px;
+            width: 100%;
+            margin: 0 auto;
             color: #333;
         }
-        
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 2rem;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-        }
-        
-        .logo {
-            color: white;
-            font-size: 1.5rem;
-            font-weight: bold;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .container {
-            max-width: 800px;
-            margin: 2rem auto;
-            padding: 0 2rem;
-        }
-        
-        .signup-container {
-            background: white;
-            border-radius: 20px;
-            padding: 3rem;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-        }
-        
+
         .signup-title {
             font-size: 2rem;
             font-weight: bold;
             text-align: center;
-            margin-bottom: 1rem;
+            margin-bottom: 2rem;
             color: #333;
         }
-        
-        .security-notice {
-            background: #e3f2fd;
-            border-left: 4px solid #2196f3;
-            padding: 1rem;
-            margin-bottom: 2rem;
-            border-radius: 8px;
-        }
-        
-        .security-notice h3 {
-            color: #1976d2;
-            margin-bottom: 0.5rem;
-        }
-        
-        .security-notice p {
-            color: #424242;
-            font-size: 0.9rem;
-        }
-        
+
         .form-section {
             margin-bottom: 2rem;
             padding: 1.5rem;
-            border: 2px solid #f0f0f0;
+            border: 2px solid #e1e5e9;
             border-radius: 12px;
+            background: #f8f9fa;
         }
-        
+
         .section-title {
             font-size: 1.2rem;
             font-weight: bold;
@@ -1034,310 +1012,401 @@ def signup():
             align-items: center;
             gap: 0.5rem;
         }
-        
+
         .form-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 1rem;
-            margin-bottom: 1rem;
+            margin-bottom: 1.5rem;
         }
-        
+
         .form-group {
-            margin-bottom: 1rem;
+            margin-bottom: 1.5rem;
         }
-        
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
         .form-label {
             display: block;
             margin-bottom: 0.5rem;
-            font-weight: 600;
+            font-weight: 500;
             color: #333;
         }
-        
-        .required {
-            color: #e74c3c;
-        }
-        
+
         .form-input, .form-select {
             width: 100%;
-            padding: 0.75rem;
+            padding: 1rem;
             border: 2px solid #e1e5e9;
             border-radius: 8px;
             font-size: 1rem;
-            transition: border-color 0.3s ease;
+            color: #333;
+            background: white;
         }
-        
+
         .form-input:focus, .form-select:focus {
             outline: none;
             border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
-        
-        .upload-area {
-            border: 2px dashed #ddd;
+
+        .file-upload {
+            border: 2px dashed #667eea;
             border-radius: 8px;
             padding: 2rem;
             text-align: center;
-            background: #fafafa;
+            background: white;
             transition: all 0.3s ease;
             cursor: pointer;
         }
-        
-        .upload-area:hover {
-            border-color: #667eea;
-            background: #f0f4ff;
+
+        .file-upload:hover {
+            border-color: #5a6fd8;
+            background: #f8f9ff;
         }
-        
-        .upload-icon {
-            font-size: 2rem;
-            margin-bottom: 0.5rem;
+
+        .file-upload input {
+            display: none;
         }
-        
-        .upload-text {
-            font-weight: 600;
-            margin-bottom: 0.25rem;
-        }
-        
-        .upload-subtext {
-            font-size: 0.9rem;
-            color: #666;
-        }
-        
+
         .camera-section {
             text-align: center;
             padding: 2rem;
-            background: #f8f9fa;
-            border-radius: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            background: white;
         }
-        
+
+        .camera-preview {
+            width: 300px;
+            height: 200px;
+            background: #f0f0f0;
+            border-radius: 8px;
+            margin: 1rem auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+        }
+
         .camera-btn {
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            background: #667eea;
             color: white;
+            padding: 0.75rem 1.5rem;
             border: none;
-            padding: 1rem 2rem;
-            border-radius: 12px;
+            border-radius: 8px;
             font-size: 1rem;
-            font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
+            margin: 0.5rem;
         }
-        
-        .camera-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-        }
-        
-        .submit-btn {
+
+        .signup-btn {
             width: 100%;
             padding: 1rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #667eea;
             color: white;
             border: none;
-            border-radius: 12px;
+            border-radius: 8px;
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
             margin-top: 2rem;
         }
-        
-        .submit-btn:hover {
+
+        .signup-btn:hover {
+            background: #5a6fd8;
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
         }
-        
-        .terms-text {
+
+        .login-link {
             text-align: center;
-            font-size: 0.9rem;
-            color: #666;
-            margin-top: 1rem;
+            margin-top: 1.5rem;
         }
-        
-        .terms-text a {
-            color: #667eea;
-            text-decoration: none;
-        }
-        
-        .back-link {
-            display: block;
-            text-align: center;
-            margin-top: 2rem;
+
+        .login-link a {
             color: #667eea;
             text-decoration: none;
             font-weight: 500;
         }
-        
+
+        .back-link {
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        .back-link a {
+            color: #666;
+            text-decoration: none;
+        }
+
         @media (max-width: 768px) {
             .form-row {
                 grid-template-columns: 1fr;
             }
             
-            .container {
-                padding: 0 1rem;
-            }
-            
             .signup-container {
                 padding: 2rem;
+                margin: 1rem;
             }
         }
     </style>
 </head>
 <body>
-    <header class="header">
-        <a href="/" class="logo">
-            🏠 BlueDwarf
-        </a>
-    </header>
-    
-    <div class="container">
-        <div class="signup-container">
-            <h1 class="signup-title">Create Account</h1>
+    <div class="signup-container">
+        <h1 class="signup-title">Create Account</h1>
+        <form action="/signup" method="POST" enctype="multipart/form-data">
             
-            <div class="security-notice">
-                <h3>🔒 Secure Professional Verification</h3>
-                <p>To ensure platform security, all professionals must complete identity verification including document uploads and live photo verification.</p>
+            <!-- Personal Information -->
+            <div class="form-section">
+                <h2 class="section-title">👤 Personal Information</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="first_name" class="form-label">First Name</label>
+                        <input type="text" id="first_name" name="first_name" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="last_name" class="form-label">Last Name</label>
+                        <input type="text" id="last_name" name="last_name" class="form-input" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="email" class="form-label">Email</label>
+                    <input type="email" id="email" name="email" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" id="password" name="password" class="form-input" required>
+                </div>
             </div>
-            
-            <form>
-                <!-- Personal Information -->
-                <div class="form-section">
-                    <h2 class="section-title">👤 Personal Information</h2>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">First Name <span class="required">*</span></label>
-                            <input type="text" class="form-input" required>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Last Name <span class="required">*</span></label>
-                            <input type="text" class="form-input" required>
+
+            <!-- Professional Information -->
+            <div class="form-section">
+                <h2 class="section-title">🏢 Professional Information</h2>
+                <div class="form-group">
+                    <label for="business_address" class="form-label">Business Address</label>
+                    <input type="text" id="business_address" name="business_address" class="form-input" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="license_number" class="form-label">License Number</label>
+                        <input type="text" id="license_number" name="license_number" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="website" class="form-label">Website (Optional)</label>
+                        <input type="url" id="website" name="website" class="form-input">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="profession" class="form-label">Profession</label>
+                        <select id="profession" name="profession" class="form-select" required>
+                            <option value="">Select your profession</option>
+                            <option value="real_estate_agent">Real Estate Agent</option>
+                            <option value="real_estate_broker">Real Estate Broker</option>
+                            <option value="mortgage_lender">Mortgage Lender</option>
+                            <option value="real_estate_attorney">Real Estate Attorney</option>
+                            <option value="property_inspector">Property Inspector</option>
+                            <option value="insurance_agent">Insurance Agent</option>
+                            <option value="general_contractor">General Contractor</option>
+                            <option value="property_appraiser">Property Appraiser</option>
+                            <option value="structural_engineer">Structural Engineer</option>
+                            <option value="escrow_officer">Escrow Officer</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="service_zip_codes" class="form-label">Service Zip Codes</label>
+                        <input type="text" id="service_zip_codes" name="service_zip_codes" class="form-input" placeholder="95628, 95814, 95630" required>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Document Verification -->
+            <div class="form-section">
+                <h2 class="section-title">📄 Document Verification</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Professional License Upload</label>
+                        <div class="file-upload" onclick="document.getElementById('license_upload').click()">
+                            <input type="file" id="license_upload" name="license_upload" accept=".pdf,.jpg,.jpeg,.png" required>
+                            <p>📄 Click to upload your professional license</p>
+                            <small>PDF, JPG, or PNG format</small>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Email <span class="required">*</span></label>
-                        <input type="email" class="form-input" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Password <span class="required">*</span></label>
-                        <input type="password" class="form-input" required>
-                    </div>
-                </div>
-                
-                <!-- Professional Information -->
-                <div class="form-section">
-                    <h2 class="section-title">💼 Professional Information</h2>
-                    <div class="form-group">
-                        <label class="form-label">Business Address <span class="required">*</span></label>
-                        <input type="text" class="form-input" placeholder="123 Main St, City, State, ZIP" required>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">License Number <span class="required">*</span></label>
-                            <input type="text" class="form-input" required>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Website</label>
-                            <input type="url" class="form-input" placeholder="https://yourwebsite.com">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">Profession <span class="required">*</span></label>
-                            <select class="form-select" required>
-                                <option value="">Select your profession</option>
-                                <option value="real-estate-agent">Real Estate Agent</option>
-                                <option value="real-estate-broker">Real Estate Broker</option>
-                                <option value="mortgage-lender">Mortgage Lender</option>
-                                <option value="real-estate-attorney">Real Estate Attorney</option>
-                                <option value="property-inspector">Property Inspector</option>
-                                <option value="insurance-agent">Insurance Agent</option>
-                                <option value="general-contractor">General Contractor</option>
-                                <option value="property-appraiser">Property Appraiser</option>
-                                <option value="structural-engineer">Structural Engineer</option>
-                                <option value="escrow-officer">Escrow Officer</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Service Zip Codes <span class="required">*</span></label>
-                            <input type="text" class="form-input" placeholder="95628, 95814, 95630" required>
-                            <small style="color: #666; font-size: 0.8rem;">Enter zip codes separated by commas (e.g., 95628, 95814, 95630)</small>
+                        <label class="form-label">Photo ID Upload</label>
+                        <div class="file-upload" onclick="document.getElementById('photo_id_upload').click()">
+                            <input type="file" id="photo_id_upload" name="photo_id_upload" accept=".jpg,.jpeg,.png" required>
+                            <p>🆔 Click to upload your photo ID</p>
+                            <small>State-issued ID or driver's license</small>
                         </div>
                     </div>
                 </div>
-                
-                <!-- Document Verification -->
-                <div class="form-section">
-                    <h2 class="section-title">📄 Document Verification</h2>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">Professional License <span class="required">*</span></label>
-                            <div class="upload-area">
-                                <div class="upload-icon">📋</div>
-                                <div class="upload-text">Upload Professional License</div>
-                                <div class="upload-subtext">PDF, JPG, PNG (Max 5MB)</div>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Photo ID / Driver's License <span class="required">*</span></label>
-                            <div class="upload-area">
-                                <div class="upload-icon">🪪</div>
-                                <div class="upload-text">Upload Photo ID</div>
-                                <div class="upload-subtext">State-issued photo ID or driver's license (JPG, PNG - Max 5MB)</div>
-                            </div>
-                        </div>
+            </div>
+
+            <!-- Live Photo Verification -->
+            <div class="form-section">
+                <h2 class="section-title">📸 Live Photo Verification</h2>
+                <div class="camera-section">
+                    <p>Take a live photo for facial recognition verification</p>
+                    <div class="camera-preview" id="camera-preview">
+                        📷 Camera Preview
                     </div>
+                    <button type="button" class="camera-btn" onclick="startCamera()">Start Camera</button>
+                    <button type="button" class="camera-btn" onclick="capturePhoto()">Capture Photo</button>
                 </div>
-                
-                <!-- Live Photo Verification -->
-                <div class="form-section">
-                    <h2 class="section-title">📸 Live Photo Verification</h2>
-                    <div class="camera-section">
-                        <div style="font-size: 3rem; margin-bottom: 1rem;">📷</div>
-                        <h4>Facial Recognition Verification</h4>
-                        <p style="margin: 1rem 0; color: #666;">Take a live photo for identity verification using our secure facial recognition system.</p>
-                        <button type="button" class="camera-btn">📸 Start Live Photo Capture</button>
-                    </div>
-                </div>
-                
-                <div class="terms-text">
-                    By creating an account, you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>
-                </div>
-                
-                <button type="submit" class="submit-btn">Create Account & Verify Identity</button>
-            </form>
-            
-            <a href="/" class="back-link">← Back to Home</a>
+            </div>
+
+            <button type="submit" class="signup-btn">Create Account</button>
+        </form>
+        
+        <div class="login-link">
+            <p>Already have an account? <a href="/login">Sign In</a></p>
+        </div>
+        <div class="back-link">
+            <a href="/">← Back to Home</a>
         </div>
     </div>
+
+    <script>
+        let stream = null;
+        let capturedPhoto = null;
+
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                const preview = document.getElementById('camera-preview');
+                const video = document.createElement('video');
+                video.srcObject = stream;
+                video.autoplay = true;
+                video.style.width = '100%';
+                video.style.height = '100%';
+                video.style.objectFit = 'cover';
+                preview.innerHTML = '';
+                preview.appendChild(video);
+            } catch (err) {
+                alert('Camera access denied or not available');
+            }
+        }
+
+        function capturePhoto() {
+            if (!stream) {
+                alert('Please start the camera first');
+                return;
+            }
+            
+            const video = document.querySelector('#camera-preview video');
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+            
+            capturedPhoto = canvas.toDataURL('image/jpeg');
+            
+            // Stop camera
+            stream.getTracks().forEach(track => track.stop());
+            
+            // Show captured photo
+            const preview = document.getElementById('camera-preview');
+            preview.innerHTML = '<img src="' + capturedPhoto + '" style="width: 100%; height: 100%; object-fit: cover;">';
+            
+            alert('Photo captured successfully!');
+        }
+
+        // File upload feedback
+        document.getElementById('license_upload').addEventListener('change', function(e) {
+            const fileName = e.target.files[0]?.name;
+            if (fileName) {
+                e.target.parentElement.innerHTML = '<p>✅ ' + fileName + '</p>';
+            }
+        });
+
+        document.getElementById('photo_id_upload').addEventListener('change', function(e) {
+            const fileName = e.target.files[0]?.name;
+            if (fileName) {
+                e.target.parentElement.innerHTML = '<p>✅ ' + fileName + '</p>';
+            }
+        });
+    </script>
 </body>
 </html>
-    ''')
+'''
+
+@app.route('/')
+def home():
+    return render_template_string(HOME_TEMPLATE)
+
+@app.route('/property-results', methods=['GET', 'POST'])
+def property_results():
+    if request.method == 'POST':
+        address = request.form.get('address', '456 Oak Avenue, Portland, OR 97205')
+    else:
+        address = request.args.get('address', '456 Oak Avenue, Portland, OR 97205')
+    
+    # Extract city and state from address for professional listings
+    address_parts = address.split(',')
+    city = address_parts[1].strip() if len(address_parts) > 1 else "Fair Oaks"
+    state = address_parts[2].strip().split()[0] if len(address_parts) > 2 else "CA"
+    
+    return render_template_string(PROPERTY_RESULTS_TEMPLATE, 
+                                address=address, 
+                                city=city, 
+                                state=state)
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        # Add authentication logic here
+        session['user'] = email
+        return redirect(url_for('home'))
+    return render_template_string(LOGIN_TEMPLATE)
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        # Handle form submission
+        first_name = request.form.get('first_name')
+        last_name = request.form.get('last_name')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        business_address = request.form.get('business_address')
+        license_number = request.form.get('license_number')
+        website = request.form.get('website')
+        profession = request.form.get('profession')
+        service_zip_codes = request.form.get('service_zip_codes')
+        
+        # Handle file uploads
+        license_upload = request.files.get('license_upload')
+        photo_id_upload = request.files.get('photo_id_upload')
+        
+        # Add user registration logic here
+        session['user'] = email
+        return redirect(url_for('home'))
+    return render_template_string(SIGNUP_TEMPLATE)
 
 @app.route('/api/health')
 def health_check():
     return jsonify({
-        "status": "healthy",
-        "service": "BlueDwarf Platform",
-        "version": "1.0.0",
-        "timestamp": datetime.now().isoformat(),
-        "message": "Enhanced platform with Street View, comparables, and aerial maps is live and operational!",
-        "features": {
-            "street_view": "Google Street View integration",
-            "aerial_maps": "Satellite view with 2-block radius",
-            "comparables": "Numbered properties with interactive map",
-            "rental_analysis": "Low-to-high rate indicators",
-            "verification": "Professional document and facial recognition"
-        },
-        "endpoints": {
-            "home": "/",
-            "search": "/search",
-            "results": "/property-results",
-            "login": "/login",
-            "signup": "/signup",
-            "health": "/api/health"
-        },
-        "environment": "production",
-        "deployment": "Heroku"
+        'status': 'healthy',
+        'service': 'BlueDwarf Platform',
+        'version': '1.0.0',
+        'message': 'Platform is live and operational!',
+        'timestamp': '2025-08-13T18:00:00Z',
+        'environment': 'production',
+        'deployment': 'Heroku',
+        'endpoints': {
+            'home': '/',
+            'about': '/about',
+            'contact': '/contact',
+            'health': '/api/health'
+        }
     })
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, debug=False)
 
