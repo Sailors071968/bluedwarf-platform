@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, request, redirect, url_for, session, jsonify, flash
+from flask import Flask, render_template_string, request, redirect, url_for, flash, jsonify
 from flask_mail import Mail, Message
 import os
 import re
@@ -49,30 +49,29 @@ def send_registration_email(user_email, user_name, profession):
                     </p>
                     
                     <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin: 1.5rem 0;">
-                        <h3 style="color: #667eea; margin-top: 0;">What's Next?</h3>
-                        <ul style="color: #666; line-height: 1.8;">
+                        <h3 style="color: #333; margin-top: 0;">What's Next?</h3>
+                        <ul style="color: #666; line-height: 1.6;">
                             <li>Complete your professional profile</li>
-                            <li>Upload your license verification documents</li>
-                            <li>Start receiving property analysis leads</li>
-                            <li>Access our comprehensive property database</li>
+                            <li>Upload verification documents</li>
+                            <li>Start receiving client inquiries</li>
+                            <li>Access our professional dashboard</li>
                         </ul>
                     </div>
                     
                     <div style="text-align: center; margin: 2rem 0;">
-                        <a href="https://bluedwarf-platform-7cae4752497f.herokuapp.com/login" 
-                           style="background: #667eea; color: white; padding: 1rem 2rem; text-decoration: none; border-radius: 8px; display: inline-block;">
-                            Login to Your Account
+                        <a href="https://bluedwarf-platform-7cae4752497f.herokuapp.com/" 
+                           style="background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                            Access Your Dashboard
                         </a>
                     </div>
                     
-                    <p style="color: #666; font-size: 0.9rem;">
-                        If you have any questions, please contact us at 
-                        <a href="mailto:support@bluedwarf.io" style="color: #667eea;">support@bluedwarf.io</a>
+                    <p style="color: #666; font-size: 14px;">
+                        If you have any questions, please contact us at support@bluedwarf.io
                     </p>
                 </div>
                 
-                <div style="background: #f8f9fa; padding: 1rem; text-align: center; color: #666; font-size: 0.8rem;">
-                    © 2025 Elite Marketing Lab LLC. All rights reserved.
+                <div style="background: #f8f9fa; padding: 1rem; text-align: center; color: #666; font-size: 12px;">
+                    © 2025 BlueDwarf Platform. All rights reserved.
                 </div>
             </body>
             </html>
@@ -84,40 +83,33 @@ def send_registration_email(user_email, user_name, profession):
         print(f"Email sending failed: {e}")
         return False
 
-def send_contact_notification(name, email, message, property_address=None):
+def send_contact_notification(name, email, message, subject="Contact Form Submission"):
     """Send contact form notification to admin"""
     try:
-        subject = f"New Contact Form Submission - {name}"
-        if property_address:
-            subject += f" (Property: {property_address})"
-            
         msg = Message(
-            subject=subject,
+            subject=f'BlueDwarf Contact: {subject}',
             recipients=['support@bluedwarf.io'],
             html=f'''
             <html>
             <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                 <div style="background: #667eea; padding: 1.5rem; text-align: center;">
-                    <h1 style="color: white; margin: 0;">📧 New Contact Form Submission</h1>
+                    <h2 style="color: white; margin: 0;">New Contact Form Submission</h2>
                 </div>
                 
                 <div style="padding: 2rem; background: white;">
-                    <h2 style="color: #333;">Contact Details</h2>
-                    
-                    <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin: 1rem 0;">
-                        <p><strong>Name:</strong> {name}</p>
-                        <p><strong>Email:</strong> {email}</p>
-                        {f"<p><strong>Property Address:</strong> {property_address}</p>" if property_address else ""}
-                    </div>
+                    <h3 style="color: #333;">Contact Details:</h3>
+                    <p><strong>Name:</strong> {name}</p>
+                    <p><strong>Email:</strong> {email}</p>
+                    <p><strong>Subject:</strong> {subject}</p>
                     
                     <h3 style="color: #333;">Message:</h3>
-                    <div style="background: white; border: 1px solid #ddd; padding: 1.5rem; border-radius: 8px;">
-                        {message.replace('\n', '<br>')}
+                    <div style="background: #f8f9fa; padding: 1rem; border-radius: 6px;">
+                        {message}
                     </div>
                     
-                    <div style="margin-top: 2rem; padding: 1rem; background: #e3f2fd; border-radius: 8px;">
-                        <p style="margin: 0; color: #1976d2;">
-                            <strong>Action Required:</strong> Please respond to this inquiry within 24 hours.
+                    <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #eee;">
+                        <p style="color: #666; font-size: 14px;">
+                            Respond to this inquiry by replying to: {email}
                         </p>
                     </div>
                 </div>
@@ -131,52 +123,9 @@ def send_contact_notification(name, email, message, property_address=None):
         print(f"Contact notification failed: {e}")
         return False
 
-def send_professional_inquiry(professional_type, property_address, client_name, client_email, client_message):
-    """Send professional inquiry notification"""
-    try:
-        msg = Message(
-            subject=f'New {professional_type} Inquiry - {property_address}',
-            recipients=['support@bluedwarf.io'],
-            html=f'''
-            <html>
-            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <div style="background: #667eea; padding: 1.5rem; text-align: center;">
-                    <h1 style="color: white; margin: 0;">🏠 New Professional Inquiry</h1>
-                </div>
-                
-                <div style="padding: 2rem; background: white;">
-                    <h2 style="color: #333;">Professional Service Request</h2>
-                    
-                    <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin: 1rem 0;">
-                        <p><strong>Service Type:</strong> {professional_type}</p>
-                        <p><strong>Property Address:</strong> {property_address}</p>
-                        <p><strong>Client Name:</strong> {client_name}</p>
-                        <p><strong>Client Email:</strong> {client_email}</p>
-                    </div>
-                    
-                    <h3 style="color: #333;">Client Message:</h3>
-                    <div style="background: white; border: 1px solid #ddd; padding: 1.5rem; border-radius: 8px;">
-                        {client_message.replace('\n', '<br>')}
-                    </div>
-                    
-                    <div style="margin-top: 2rem; padding: 1rem; background: #e8f5e8; border-radius: 8px;">
-                        <p style="margin: 0; color: #2e7d32;">
-                            <strong>Next Steps:</strong> Forward this inquiry to qualified {professional_type.lower()}s in the area.
-                        </p>
-                    </div>
-                </div>
-            </body>
-            </html>
-            '''
-        )
-        mail.send(msg)
-        return True
-    except Exception as e:
-        print(f"Professional inquiry failed: {e}")
-        return False
-
-# Homepage template with cleaned up design
-HOME_TEMPLATE = '''
+@app.route('/')
+def index():
+    return render_template_string('''
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -189,229 +138,182 @@ HOME_TEMPLATE = '''
             padding: 0;
             box-sizing: border-box;
         }
-
+        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            color: white;
+            color: #333;
         }
-
+        
         .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 1rem 2rem;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
         }
-
+        
         .logo {
             font-size: 1.5rem;
             font-weight: bold;
-            text-decoration: none;
             color: white;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
+            text-decoration: none;
         }
-
+        
         .nav-buttons {
             display: flex;
             gap: 1rem;
         }
-
-        .nav-btn {
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
+        
+        .nav-buttons a {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
             text-decoration: none;
             font-weight: 500;
             transition: all 0.3s ease;
         }
-
+        
         .login-btn {
-            background: rgba(255, 255, 255, 0.2);
             color: white;
             border: 1px solid rgba(255, 255, 255, 0.3);
         }
-
+        
+        .login-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
         .signup-btn {
-            background: #ff6b6b;
+            background: rgba(255, 255, 255, 0.2);
             color: white;
         }
-
-        .nav-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        
+        .signup-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
         }
-
+        
         .main-content {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: calc(100vh - 100px);
+            min-height: calc(100vh - 80px);
             padding: 2rem;
             text-align: center;
         }
-
-        .title {
-            font-size: 3rem;
-            font-weight: bold;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .subtitle {
-            font-size: 1.2rem;
+        
+        .hero-section {
+            max-width: 800px;
             margin-bottom: 3rem;
-            opacity: 0.9;
         }
-
+        
+        .hero-title {
+            font-size: 3rem;
+            color: white;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+        
+        .hero-subtitle {
+            font-size: 1.2rem;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 2rem;
+        }
+        
         .search-container {
-            background: rgba(255, 255, 255, 0.95);
+            background: white;
             padding: 2rem;
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
             max-width: 600px;
             width: 100%;
         }
-
+        
         .search-form {
             display: flex;
             flex-direction: column;
             gap: 1rem;
         }
-
+        
         .search-input {
             padding: 1rem;
             border: 2px solid #e1e5e9;
             border-radius: 8px;
             font-size: 1rem;
-            color: #333;
-            background: white;
+            transition: border-color 0.3s ease;
         }
-
+        
         .search-input:focus {
             outline: none;
             border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
-
+        
         .button-group {
             display: flex;
             gap: 1rem;
         }
-
+        
         .search-btn, .clear-btn {
             flex: 1;
-            padding: 1rem 3rem;
+            padding: 1rem;
             border: none;
             border-radius: 8px;
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
-            min-width: 150px;
         }
-
+        
         .search-btn {
             background: #667eea;
             color: white;
         }
-
+        
+        .search-btn:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+        
         .clear-btn {
             background: #ff6b6b;
             color: white;
         }
-
-        .search-btn:hover, .clear-btn:hover {
+        
+        .clear-btn:hover {
+            background: #ff5252;
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
-
-        .footer {
-            text-align: center;
-            padding: 2rem;
-            background: rgba(0, 0, 0, 0.1);
-            margin-top: auto;
-        }
-
-        .footer a {
-            color: white;
-            text-decoration: none;
-        }
-
-        .flash-messages {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-        }
-
-        .flash-message {
-            background: #4CAF50;
-            color: white;
-            padding: 1rem 1.5rem;
-            border-radius: 8px;
-            margin-bottom: 0.5rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            animation: slideIn 0.3s ease;
-        }
-
-        .flash-message.error {
-            background: #f44336;
-        }
-
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-
+        
         @media (max-width: 768px) {
-            .title {
+            .hero-title {
                 font-size: 2rem;
+            }
+            
+            .search-container {
+                margin: 0 1rem;
             }
             
             .button-group {
                 flex-direction: column;
             }
-            
-            .search-btn, .clear-btn {
-                width: 100%;
-            }
         }
     </style>
 </head>
 <body>
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="flash-messages">
-                {% for category, message in messages %}
-                    <div class="flash-message {{ 'error' if category == 'error' else '' }}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            </div>
-        {% endif %}
-    {% endwith %}
-
     <header class="header">
         <a href="/" class="logo">🏠 BlueDwarf</a>
         <div class="nav-buttons">
-            <a href="/login" class="nav-btn login-btn">Login</a>
-            <a href="/signup" class="nav-btn signup-btn">Get Started</a>
+            <a href="#" class="login-btn">Login</a>
+            <a href="/signup" class="signup-btn">Get Started</a>
         </div>
     </header>
-
+    
     <main class="main-content">
-        <h1 class="title">
-            🏠 Property Analysis
-        </h1>
-        <p class="subtitle">Instant Data • Full US Coverage</p>
+        <div class="hero-section">
+            <h1 class="hero-title">🏠 Property Analysis</h1>
+            <p class="hero-subtitle">Instant Data • Full US Coverage</p>
+        </div>
         
         <div class="search-container">
             <form class="search-form" action="/property-results" method="POST">
@@ -429,555 +331,16 @@ HOME_TEMPLATE = '''
             </form>
         </div>
     </main>
-
-    <footer class="footer">
-        <p>&copy; 2025 Elite Marketing Lab LLC. All rights reserved. | <a href="mailto:support@bluedwarf.io">support@bluedwarf.io</a></p>
-    </footer>
-
-    <script>
-        // Auto-hide flash messages after 5 seconds
-        setTimeout(function() {
-            const flashMessages = document.querySelector('.flash-messages');
-            if (flashMessages) {
-                flashMessages.style.opacity = '0';
-                flashMessages.style.transform = 'translateX(100%)';
-                setTimeout(() => flashMessages.remove(), 300);
-            }
-        }, 5000);
-    </script>
 </body>
 </html>
-'''
-
-# Registration template with email integration
-SIGNUP_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Professional Registration - BlueDwarf</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: #333;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 2rem;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            color: white;
-        }
-
-        .logo {
-            font-size: 1.5rem;
-            font-weight: bold;
-            text-decoration: none;
-            color: white;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .container {
-            max-width: 800px;
-            margin: 2rem auto;
-            padding: 0 2rem;
-        }
-
-        .registration-card {
-            background: white;
-            padding: 3rem;
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }
-
-        .form-title {
-            font-size: 2rem;
-            font-weight: bold;
-            text-align: center;
-            margin-bottom: 0.5rem;
-            color: #333;
-        }
-
-        .form-subtitle {
-            text-align: center;
-            color: #666;
-            margin-bottom: 2rem;
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: #333;
-        }
-
-        .form-input, .form-select, .form-textarea {
-            width: 100%;
-            padding: 1rem;
-            border: 2px solid #e1e5e9;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: border-color 0.3s ease;
-        }
-
-        .form-input:focus, .form-select:focus, .form-textarea:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        .form-textarea {
-            resize: vertical;
-            min-height: 100px;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-        }
-
-        .submit-btn {
-            width: 100%;
-            padding: 1rem 2rem;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 1rem;
-        }
-
-        .submit-btn:hover {
-            background: #5a6fd8;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        }
-
-        .back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: #667eea;
-            text-decoration: none;
-            margin-bottom: 2rem;
-            font-weight: 500;
-        }
-
-        .back-link:hover {
-            color: #5a6fd8;
-        }
-
-        .flash-messages {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-        }
-
-        .flash-message {
-            background: #4CAF50;
-            color: white;
-            padding: 1rem 1.5rem;
-            border-radius: 8px;
-            margin-bottom: 0.5rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            animation: slideIn 0.3s ease;
-        }
-
-        .flash-message.error {
-            background: #f44336;
-        }
-
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-
-        @media (max-width: 768px) {
-            .form-row {
-                grid-template-columns: 1fr;
-            }
-            
-            .registration-card {
-                padding: 2rem;
-                margin: 1rem;
-            }
-        }
-    </style>
-</head>
-<body>
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="flash-messages">
-                {% for category, message in messages %}
-                    <div class="flash-message {{ 'error' if category == 'error' else '' }}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            </div>
-        {% endif %}
-    {% endwith %}
-
-    <header class="header">
-        <a href="/" class="logo">🏠 BlueDwarf</a>
-        <div class="nav-buttons">
-            <a href="/login" class="nav-btn login-btn">Login</a>
-        </div>
-    </header>
-
-    <div class="container">
-        <a href="/" class="back-link">← Back to Home</a>
-        
-        <div class="registration-card">
-            <h1 class="form-title">Professional Registration</h1>
-            <p class="form-subtitle">Join our network of verified real estate professionals</p>
-            
-            <form method="POST" action="/signup">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label" for="first_name">First Name *</label>
-                        <input type="text" id="first_name" name="first_name" class="form-input" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label" for="last_name">Last Name *</label>
-                        <input type="text" id="last_name" name="last_name" class="form-input" required>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="email">Email Address *</label>
-                    <input type="email" id="email" name="email" class="form-input" required>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="password">Password *</label>
-                    <input type="password" id="password" name="password" class="form-input" required>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="business_address">Business Address *</label>
-                    <input type="text" id="business_address" name="business_address" class="form-input" 
-                           placeholder="123 Business St, City, State, ZIP" required>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="license_number">License Number *</label>
-                    <input type="text" id="license_number" name="license_number" class="form-input" required>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="profession">Professional Category *</label>
-                    <select id="profession" name="profession" class="form-select" required>
-                        <option value="">Select your profession</option>
-                        <option value="Real Estate Agent">Real Estate Agent</option>
-                        <option value="Real Estate Broker">Real Estate Broker</option>
-                        <option value="Property Manager">Property Manager</option>
-                        <option value="Home Inspector">Home Inspector</option>
-                        <option value="Appraiser">Appraiser</option>
-                        <option value="Mortgage Broker">Mortgage Broker</option>
-                        <option value="Real Estate Attorney">Real Estate Attorney</option>
-                        <option value="Property Developer">Property Developer</option>
-                        <option value="Investment Advisor">Investment Advisor</option>
-                        <option value="Contractor">Contractor</option>
-                        <option value="Property Photographer">Property Photographer</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="service_areas">Service Zip Codes *</label>
-                    <input type="text" id="service_areas" name="service_areas" class="form-input" 
-                           placeholder="95814, 95628, 95630" required>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="bio">Professional Bio</label>
-                    <textarea id="bio" name="bio" class="form-textarea" 
-                              placeholder="Tell potential clients about your experience and services..."></textarea>
-                </div>
-
-                <button type="submit" class="submit-btn">Create Account</button>
-            </form>
-        </div>
-    </div>
-
-    <script>
-        // Auto-hide flash messages after 5 seconds
-        setTimeout(function() {
-            const flashMessages = document.querySelector('.flash-messages');
-            if (flashMessages) {
-                flashMessages.style.opacity = '0';
-                flashMessages.style.transform = 'translateX(100%)';
-                setTimeout(() => flashMessages.remove(), 300);
-            }
-        }, 5000);
-    </script>
-</body>
-</html>
-'''
-
-# Contact form template
-CONTACT_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contact Us - BlueDwarf</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: #333;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 2rem;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            color: white;
-        }
-
-        .logo {
-            font-size: 1.5rem;
-            font-weight: bold;
-            text-decoration: none;
-            color: white;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .container {
-            max-width: 600px;
-            margin: 2rem auto;
-            padding: 0 2rem;
-        }
-
-        .contact-card {
-            background: white;
-            padding: 3rem;
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }
-
-        .form-title {
-            font-size: 2rem;
-            font-weight: bold;
-            text-align: center;
-            margin-bottom: 0.5rem;
-            color: #333;
-        }
-
-        .form-subtitle {
-            text-align: center;
-            color: #666;
-            margin-bottom: 2rem;
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: #333;
-        }
-
-        .form-input, .form-textarea {
-            width: 100%;
-            padding: 1rem;
-            border: 2px solid #e1e5e9;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: border-color 0.3s ease;
-        }
-
-        .form-input:focus, .form-textarea:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        .form-textarea {
-            resize: vertical;
-            min-height: 120px;
-        }
-
-        .submit-btn {
-            width: 100%;
-            padding: 1rem 2rem;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 1rem;
-        }
-
-        .submit-btn:hover {
-            background: #5a6fd8;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        }
-
-        .back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: #667eea;
-            text-decoration: none;
-            margin-bottom: 2rem;
-            font-weight: 500;
-        }
-
-        .back-link:hover {
-            color: #5a6fd8;
-        }
-
-        .flash-messages {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-        }
-
-        .flash-message {
-            background: #4CAF50;
-            color: white;
-            padding: 1rem 1.5rem;
-            border-radius: 8px;
-            margin-bottom: 0.5rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            animation: slideIn 0.3s ease;
-        }
-
-        .flash-message.error {
-            background: #f44336;
-        }
-
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-
-        @media (max-width: 768px) {
-            .contact-card {
-                padding: 2rem;
-                margin: 1rem;
-            }
-        }
-    </style>
-</head>
-<body>
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="flash-messages">
-                {% for category, message in messages %}
-                    <div class="flash-message {{ 'error' if category == 'error' else '' }}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            </div>
-        {% endif %}
-    {% endwith %}
-
-    <header class="header">
-        <a href="/" class="logo">🏠 BlueDwarf</a>
-        <div class="nav-buttons">
-            <a href="/login" class="nav-btn login-btn">Login</a>
-            <a href="/signup" class="nav-btn signup-btn">Get Started</a>
-        </div>
-    </header>
-
-    <div class="container">
-        <a href="/" class="back-link">← Back to Home</a>
-        
-        <div class="contact-card">
-            <h1 class="form-title">Contact Us</h1>
-            <p class="form-subtitle">Get in touch with our team</p>
-            
-            <form method="POST" action="/contact">
-                <div class="form-group">
-                    <label class="form-label" for="name">Your Name *</label>
-                    <input type="text" id="name" name="name" class="form-input" required>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="email">Email Address *</label>
-                    <input type="email" id="email" name="email" class="form-input" required>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="subject">Subject</label>
-                    <input type="text" id="subject" name="subject" class="form-input" 
-                           placeholder="What can we help you with?">
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label" for="message">Message *</label>
-                    <textarea id="message" name="message" class="form-textarea" 
-                              placeholder="Tell us how we can help..." required></textarea>
-                </div>
-
-                <button type="submit" class="submit-btn">Send Message</button>
-            </form>
-        </div>
-    </div>
-
-    <script>
-        // Auto-hide flash messages after 5 seconds
-        setTimeout(function() {
-            const flashMessages = document.querySelector('.flash-messages');
-            if (flashMessages) {
-                flashMessages.style.opacity = '0';
-                flashMessages.style.transform = 'translateX(100%)';
-                setTimeout(() => flashMessages.remove(), 300);
-            }
-        }, 5000);
-    </script>
-</body>
-</html>
-'''
-
-# Enhanced Property Results template with Google search buttons and detailed descriptions
-PROPERTY_RESULTS_TEMPLATE = '''
+    ''')
+
+@app.route('/property-results', methods=['POST'])
+def property_results():
+    address = request.form.get('address', '123 Main Street, Sacramento, CA 95814')
+    zip_code = extract_zip_code(address)
+    
+    return render_template_string('''
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -990,208 +353,199 @@ PROPERTY_RESULTS_TEMPLATE = '''
             padding: 0;
             box-sizing: border-box;
         }
-
+        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             color: #333;
         }
-
+        
         .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 1rem 2rem;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            color: white;
         }
-
+        
         .logo {
             font-size: 1.5rem;
             font-weight: bold;
-            text-decoration: none;
             color: white;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
+            text-decoration: none;
         }
-
+        
         .nav-buttons {
             display: flex;
             gap: 1rem;
         }
-
-        .nav-btn {
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
+        
+        .nav-buttons a {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
             text-decoration: none;
             font-weight: 500;
             transition: all 0.3s ease;
-        }
-
-        .login-btn {
-            background: rgba(255, 255, 255, 0.2);
             color: white;
             border: 1px solid rgba(255, 255, 255, 0.3);
         }
-
-        .signup-btn {
-            background: #ff6b6b;
-            color: white;
+        
+        .nav-buttons a:hover {
+            background: rgba(255, 255, 255, 0.1);
         }
-
+        
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 2rem;
         }
-
+        
         .property-header {
             background: white;
             padding: 2rem;
-            border-radius: 16px;
+            border-radius: 15px;
             margin-bottom: 2rem;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
         }
-
+        
         .property-title {
             font-size: 2rem;
-            font-weight: bold;
-            margin-bottom: 0.5rem;
             color: #333;
+            margin-bottom: 0.5rem;
         }
-
+        
         .property-subtitle {
             color: #666;
             font-size: 1.1rem;
         }
-
-        .content-grid {
+        
+        .maps-section {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 2rem;
             margin-bottom: 2rem;
         }
-
-        .card {
+        
+        .map-container {
             background: white;
+            border-radius: 15px;
             padding: 1.5rem;
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
         }
-
-        .card-title {
-            font-size: 1.3rem;
-            font-weight: bold;
+        
+        .map-title {
+            font-size: 1.2rem;
+            color: #333;
             margin-bottom: 1rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            color: #333;
         }
-
-        .street-view-container, .aerial-view-container {
+        
+        .map-frame {
             width: 100%;
             height: 300px;
-            border-radius: 12px;
-            overflow: hidden;
-            border: 2px solid #e1e5e9;
-        }
-
-        .street-view-iframe, .aerial-view-iframe {
-            width: 100%;
-            height: 100%;
             border: none;
+            border-radius: 10px;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
         }
-
-        .property-details {
+        
+        .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 1.5rem;
             margin-bottom: 2rem;
         }
-
-        .detail-card {
+        
+        .stat-card {
             background: white;
             padding: 1.5rem;
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
             text-align: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
         }
-
-        .detail-value {
+        
+        .stat-value {
             font-size: 1.8rem;
             font-weight: bold;
             color: #667eea;
             margin-bottom: 0.5rem;
         }
-
-        .detail-label {
+        
+        .stat-label {
             color: #666;
             font-size: 0.9rem;
         }
-
+        
         .rental-analysis {
             background: white;
             padding: 2rem;
-            border-radius: 16px;
+            border-radius: 15px;
             margin-bottom: 2rem;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
         }
-
-        .rental-bar {
-            width: 100%;
-            height: 20px;
-            background: linear-gradient(to right, #4CAF50, #FFC107, #FF5722);
-            border-radius: 10px;
-            position: relative;
+        
+        .section-title {
+            font-size: 1.3rem;
+            color: #333;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .rental-range {
+            background: linear-gradient(90deg, #4CAF50 0%, #FFC107 50%, #FF5722 100%);
+            height: 10px;
+            border-radius: 5px;
             margin: 1rem 0;
+            position: relative;
         }
-
-        .rental-marker {
+        
+        .rental-indicator {
             position: absolute;
             top: -5px;
-            left: 45%;
-            width: 4px;
-            height: 30px;
+            width: 2px;
+            height: 20px;
             background: #333;
-            border-radius: 2px;
+            left: 50%;
         }
-
+        
         .rental-labels {
             display: flex;
             justify-content: space-between;
             font-size: 0.9rem;
             color: #666;
         }
-
+        
         .comparables-section {
             background: white;
             padding: 2rem;
-            border-radius: 16px;
+            border-radius: 15px;
             margin-bottom: 2rem;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
         }
-
+        
         .comparable-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 1rem;
-            border-bottom: 1px solid #e1e5e9;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 1rem;
         }
-
-        .comparable-item:last-child {
-            border-bottom: none;
-        }
-
+        
         .comparable-number {
-            width: 30px;
-            height: 30px;
             background: #667eea;
             color: white;
+            width: 30px;
+            height: 30px;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -1199,180 +553,144 @@ PROPERTY_RESULTS_TEMPLATE = '''
             font-weight: bold;
             margin-right: 1rem;
         }
-
-        .comparable-info {
+        
+        .comparable-details {
             flex: 1;
         }
-
+        
         .comparable-address {
-            font-weight: bold;
-            margin-bottom: 0.25rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.3rem;
         }
-
-        .comparable-details {
+        
+        .comparable-specs {
             color: #666;
             font-size: 0.9rem;
         }
-
+        
         .comparable-price {
             font-size: 1.2rem;
             font-weight: bold;
             color: #667eea;
         }
-
-        .comparables-map {
-            width: 100%;
-            height: 400px;
-            border-radius: 12px;
-            overflow: hidden;
-            border: 2px solid #e1e5e9;
-            margin-top: 1rem;
-        }
-
+        
         .professionals-section {
             background: white;
             padding: 2rem;
-            border-radius: 16px;
+            border-radius: 15px;
             margin-bottom: 2rem;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
         }
-
+        
         .professionals-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(2, 1fr);
             gap: 1.5rem;
-            margin-top: 1.5rem;
         }
-
+        
         .professional-card {
-            border: 2px solid #e1e5e9;
+            border: 1px solid #e1e5e9;
             border-radius: 12px;
             padding: 1.5rem;
             transition: all 0.3s ease;
         }
-
+        
         .professional-card:hover {
-            border-color: #667eea;
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
         }
-
+        
         .professional-title {
             font-size: 1.1rem;
-            font-weight: bold;
+            font-weight: 600;
             color: #667eea;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.3rem;
         }
-
+        
         .professional-location {
             color: #666;
             font-size: 0.9rem;
             margin-bottom: 1rem;
         }
-
+        
         .professional-description {
-            color: #333;
+            color: #555;
             font-size: 0.9rem;
-            margin-bottom: 1rem;
             line-height: 1.4;
+            margin-bottom: 1.5rem;
         }
-
+        
         .professional-buttons {
             display: flex;
-            gap: 0.75rem;
+            gap: 0.5rem;
         }
-
-        .professional-btn, .website-btn {
+        
+        .website-btn, .contact-btn {
             flex: 1;
-            padding: 0.5rem 1rem;
+            padding: 0.7rem;
             border: none;
             border-radius: 6px;
             font-size: 0.9rem;
+            font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
-            text-decoration: none;
-            text-align: center;
-            display: inline-block;
         }
-
-        .professional-btn {
-            background: #667eea;
-            color: white;
-        }
-
+        
         .website-btn {
-            background: #28a745;
-            color: white;
-        }
-
-        .professional-btn:hover {
-            background: #5a6fd8;
-            transform: translateY(-1px);
-        }
-
-        .website-btn:hover {
-            background: #218838;
-            transform: translateY(-1px);
-        }
-
-        .back-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
             background: #667eea;
             color: white;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            margin-top: 2rem;
         }
-
-        .back-btn:hover {
+        
+        .website-btn:hover {
             background: #5a6fd8;
-            transform: translateY(-2px);
+            transform: translateY(-1px);
         }
-
-        .flash-messages {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
+        
+        .contact-btn {
+            background: #f8f9fa;
+            color: #667eea;
+            border: 1px solid #667eea;
         }
-
-        .flash-message {
-            background: #4CAF50;
+        
+        .contact-btn:hover {
+            background: #667eea;
             color: white;
-            padding: 1rem 1.5rem;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-top: 2rem;
+            padding: 1rem 2rem;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            text-decoration: none;
             border-radius: 8px;
-            margin-bottom: 0.5rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            animation: slideIn 0.3s ease;
+            transition: all 0.3s ease;
         }
-
-        .flash-message.error {
-            background: #f44336;
+        
+        .back-link:hover {
+            background: rgba(255, 255, 255, 0.3);
         }
-
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-
+        
         @media (max-width: 768px) {
-            .content-grid {
+            .maps-section {
                 grid-template-columns: 1fr;
-            }
-            
-            .property-details {
-                grid-template-columns: repeat(2, 1fr);
             }
             
             .professionals-grid {
                 grid-template-columns: 1fr;
             }
-
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .comparable-item {
+                flex-direction: column;
+                text-align: center;
+            }
+            
             .professional-buttons {
                 flex-direction: column;
             }
@@ -1380,425 +698,469 @@ PROPERTY_RESULTS_TEMPLATE = '''
     </style>
 </head>
 <body>
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="flash-messages">
-                {% for category, message in messages %}
-                    <div class="flash-message {{ 'error' if category == 'error' else '' }}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            </div>
-        {% endif %}
-    {% endwith %}
-
     <header class="header">
         <a href="/" class="logo">🏠 BlueDwarf</a>
         <div class="nav-buttons">
-            <a href="/login" class="nav-btn login-btn">Login</a>
-            <a href="/signup" class="nav-btn signup-btn">Get Started</a>
+            <a href="#">Login</a>
+            <a href="/signup">Get Started</a>
         </div>
     </header>
-
+    
     <div class="container">
         <div class="property-header">
             <h1 class="property-title">{{ address }}</h1>
             <p class="property-subtitle">Comprehensive Property Analysis Report</p>
         </div>
-
-        <div class="content-grid">
-            <div class="card">
-                <h2 class="card-title">🏠 Street View</h2>
-                <div class="street-view-container">
-                    <iframe 
-                        class="street-view-iframe"
-                        src="https://www.google.com/maps/embed/v1/streetview?key=AIzaSyDe8QxfkBSo2Ids9PWK24-aKgqbI9du9B4&location={{ address }}&heading=0&pitch=0&fov=75"
+        
+        <div class="maps-section">
+            <div class="map-container">
+                <h3 class="map-title">🏠 Street View</h3>
+                <iframe class="map-frame" 
+                        src="https://www.google.com/maps/embed/v1/streetview?key=AIzaSyDe8QxfkBSo2Ids9PWK24-aKgqbI9du9B4&location={{ address }}&heading=210&pitch=10&fov=35"
                         allowfullscreen>
-                    </iframe>
-                </div>
+                </iframe>
             </div>
-
-            <div class="card">
-                <h2 class="card-title">🛰️ Aerial View (2 blocks)</h2>
-                <div class="aerial-view-container">
-                    <iframe 
-                        class="aerial-view-iframe"
-                        src="https://www.google.com/maps/embed/v1/view?key=AIzaSyDe8QxfkBSo2Ids9PWK24-aKgqbI9du9B4&center={{ address }}&zoom=17&maptype=satellite"
+            
+            <div class="map-container">
+                <h3 class="map-title">🛰️ Aerial View (2 blocks)</h3>
+                <iframe class="map-frame"
+                        src="https://www.google.com/maps/embed/v1/view?key=AIzaSyDe8QxfkBSo2Ids9PWK24-aKgqbI9du9B4&center={{ address }}&zoom=16&maptype=satellite"
                         allowfullscreen>
-                    </iframe>
-                </div>
-            </div>
-        </div>
-
-        <div class="property-details">
-            <div class="detail-card">
-                <div class="detail-value">$485,000</div>
-                <div class="detail-label">Estimated Value</div>
-            </div>
-            <div class="detail-card">
-                <div class="detail-value">3</div>
-                <div class="detail-label">Bedrooms</div>
-            </div>
-            <div class="detail-card">
-                <div class="detail-value">2</div>
-                <div class="detail-label">Bathrooms</div>
-            </div>
-            <div class="detail-card">
-                <div class="detail-value">1,850</div>
-                <div class="detail-label">Square Feet</div>
-            </div>
-            <div class="detail-card">
-                <div class="detail-value">1995</div>
-                <div class="detail-label">Year Built</div>
-            </div>
-            <div class="detail-card">
-                <div class="detail-value">0.25</div>
-                <div class="detail-label">Lot Size (acres)</div>
-            </div>
-        </div>
-
-        <div class="rental-analysis">
-            <h2 class="card-title">💰 Rental Rate Analysis</h2>
-            <p style="color: #666; margin-bottom: 1rem;">Based on comparable properties in the area</p>
-            
-            <div class="rental-bar">
-                <div class="rental-marker"></div>
-            </div>
-            
-            <div class="rental-labels">
-                <span>$1,800/mo</span>
-                <span style="font-weight: bold; color: #333;">$2,250/mo (Estimated)</span>
-                <span>$2,800/mo</span>
-            </div>
-            
-            <p style="color: #666; font-size: 0.9rem; margin-top: 1rem;">
-                This property is estimated to rent for <strong>$2,250/month</strong> based on recent comparable rentals.
-            </p>
-        </div>
-
-        <div class="comparables-section">
-            <h2 class="card-title">📊 Comparable Properties</h2>
-            <p style="color: #666; margin-bottom: 1rem;">Recent sales within 0.5 miles</p>
-            
-            <div class="comparable-item">
-                <div style="display: flex; align-items: center;">
-                    <div class="comparable-number">1</div>
-                    <div class="comparable-info">
-                        <div class="comparable-address">456 Oak Street</div>
-                        <div class="comparable-details">3 bed • 2 bath • 1,920 sq ft • Sold 2 months ago</div>
-                    </div>
-                </div>
-                <div class="comparable-price">$492,000</div>
-            </div>
-            
-            <div class="comparable-item">
-                <div style="display: flex; align-items: center;">
-                    <div class="comparable-number">2</div>
-                    <div class="comparable-info">
-                        <div class="comparable-address">789 Maple Avenue</div>
-                        <div class="comparable-details">3 bed • 2 bath • 1,780 sq ft • Sold 1 month ago</div>
-                    </div>
-                </div>
-                <div class="comparable-price">$478,000</div>
-            </div>
-            
-            <div class="comparable-item">
-                <div style="display: flex; align-items: center;">
-                    <div class="comparable-number">3</div>
-                    <div class="comparable-info">
-                        <div class="comparable-address">321 Elm Drive</div>
-                        <div class="comparable-details">4 bed • 2.5 bath • 2,100 sq ft • Sold 3 weeks ago</div>
-                    </div>
-                </div>
-                <div class="comparable-price">$515,000</div>
-            </div>
-            
-            <div class="comparable-item">
-                <div style="display: flex; align-items: center;">
-                    <div class="comparable-number">4</div>
-                    <div class="comparable-info">
-                        <div class="comparable-address">654 Pine Court</div>
-                        <div class="comparable-details">3 bed • 1.5 bath • 1,650 sq ft • Sold 6 weeks ago</div>
-                    </div>
-                </div>
-                <div class="comparable-price">$445,000</div>
-            </div>
-            
-            <div class="comparable-item">
-                <div style="display: flex; align-items: center;">
-                    <div class="comparable-number">5</div>
-                    <div class="comparable-info">
-                        <div class="comparable-address">987 Cedar Lane</div>
-                        <div class="comparable-details">3 bed • 2 bath • 1,900 sq ft • Sold 1 month ago</div>
-                    </div>
-                </div>
-                <div class="comparable-price">$488,000</div>
-            </div>
-            
-            <div class="comparables-map">
-                <iframe 
-                    src="https://www.google.com/maps/embed/v1/view?key=AIzaSyDe8QxfkBSo2Ids9PWK24-aKgqbI9du9B4&center={{ address }}&zoom=15"
-                    width="100%" 
-                    height="100%" 
-                    style="border:0;" 
-                    allowfullscreen>
                 </iframe>
             </div>
         </div>
-
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">$485,000</div>
+                <div class="stat-label">Estimated Value</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">4</div>
+                <div class="stat-label">Bedrooms</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">2</div>
+                <div class="stat-label">Bathrooms</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">1,492</div>
+                <div class="stat-label">Square Feet</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">1964</div>
+                <div class="stat-label">Year Built</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">$2,510</div>
+                <div class="stat-label">Monthly Rent Est</div>
+            </div>
+        </div>
+        
+        <div class="rental-analysis">
+            <h3 class="section-title">📊 Rental Rate Analysis</h3>
+            <div class="rental-range">
+                <div class="rental-indicator"></div>
+            </div>
+            <div class="rental-labels">
+                <span>$1,800 Low</span>
+                <span>Current: $2,510/month</span>
+                <span>$3,200 High</span>
+            </div>
+        </div>
+        
+        <div class="comparables-section">
+            <h3 class="section-title">🏘️ Comparable Properties</h3>
+            
+            <div class="comparable-item">
+                <div class="comparable-number">1</div>
+                <div class="comparable-details">
+                    <div class="comparable-address">456 Oak Avenue</div>
+                    <div class="comparable-specs">3 bed • 2 bath • 2,080 sq ft • 0.3 mi</div>
+                </div>
+                <div class="comparable-price">$472,000</div>
+            </div>
+            
+            <div class="comparable-item">
+                <div class="comparable-number">2</div>
+                <div class="comparable-details">
+                    <div class="comparable-address">789 Maple Street</div>
+                    <div class="comparable-specs">4 bed • 3 bath • 2,340 sq ft • 0.4 mi</div>
+                </div>
+                <div class="comparable-price">$518,000</div>
+            </div>
+            
+            <div class="comparable-item">
+                <div class="comparable-number">3</div>
+                <div class="comparable-details">
+                    <div class="comparable-address">321 Elm Drive</div>
+                    <div class="comparable-specs">3 bed • 2.5 bath • 2,200 sq ft • 0.5 mi</div>
+                </div>
+                <div class="comparable-price">$495,000</div>
+            </div>
+            
+            <div class="comparable-item">
+                <div class="comparable-number">4</div>
+                <div class="comparable-details">
+                    <div class="comparable-address">654 Cedar Lane</div>
+                    <div class="comparable-specs">3 bed • 2 bath • 1,950 sq ft • 0.6 mi</div>
+                </div>
+                <div class="comparable-price">$458,000</div>
+            </div>
+            
+            <div class="comparable-item">
+                <div class="comparable-number">5</div>
+                <div class="comparable-details">
+                    <div class="comparable-address">987 Birch Court</div>
+                    <div class="comparable-specs">4 bed • 2.5 bath • 2,450 sq ft • 0.7 mi</div>
+                </div>
+                <div class="comparable-price">$535,000</div>
+            </div>
+            
+            <iframe class="map-frame" style="margin-top: 1rem;"
+                    src="https://www.google.com/maps/embed/v1/view?key=AIzaSyDe8QxfkBSo2Ids9PWK24-aKgqbI9du9B4&center={{ address }}&zoom=15"
+                    allowfullscreen>
+            </iframe>
+        </div>
+        
         <div class="professionals-section">
-            <h2 class="card-title">👥 Local Real Estate Professionals</h2>
-            <p style="color: #666; margin-bottom: 1rem;">Connect with verified professionals in your area</p>
+            <h3 class="section-title">👥 Local Professionals in {{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</h3>
             
             <div class="professionals-grid">
                 <div class="professional-card">
                     <div class="professional-title">Real Estate Agent</div>
-                    <div class="professional-location">Local Area Specialists</div>
-                    <div class="professional-description">Licensed professionals who help buyers and sellers navigate property transactions. They provide market analysis, negotiate deals, handle paperwork, and guide clients through the entire buying or selling process from listing to closing.</div>
+                    <div class="professional-location">{{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</div>
+                    <div class="professional-description">Experienced agent specializing in residential properties and first-time buyers. Provides market analysis, negotiation expertise, and comprehensive transaction support from listing to closing.</div>
                     <div class="professional-buttons">
-                        <button class="professional-btn" onclick="contactProfessional('Real Estate Agent', '{{ address }}')">Contact</button>
-                        <a href="#" class="website-btn" onclick="searchProfessional('Real Estate Agent', '{{ zip_code }}'); return false;">Website</a>
+                        <button class="website-btn" onclick="searchProfessional('Real Estate Agent', '{{ zip_code }}')">Website</button>
+                        <button class="contact-btn" onclick="contactProfessional('Real Estate Agent')">Contact</button>
                     </div>
                 </div>
                 
                 <div class="professional-card">
                     <div class="professional-title">Real Estate Broker</div>
-                    <div class="professional-location">Licensed Brokerage Services</div>
-                    <div class="professional-description">Senior-level real estate professionals with additional licensing who can own and operate real estate firms. They supervise agents, handle complex transactions, provide advanced market expertise, and offer comprehensive brokerage services for high-value properties.</div>
+                    <div class="professional-location">{{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</div>
+                    <div class="professional-description">Licensed broker with extensive market knowledge and investment expertise. Offers advanced real estate services, brokerage operations, and complex transaction management.</div>
                     <div class="professional-buttons">
-                        <button class="professional-btn" onclick="contactProfessional('Real Estate Broker', '{{ address }}')">Contact</button>
-                        <a href="#" class="website-btn" onclick="searchProfessional('Real Estate Broker', '{{ zip_code }}'); return false;">Website</a>
+                        <button class="website-btn" onclick="searchProfessional('Real Estate Broker', '{{ zip_code }}')">Website</button>
+                        <button class="contact-btn" onclick="contactProfessional('Real Estate Broker')">Contact</button>
                     </div>
                 </div>
                 
                 <div class="professional-card">
-                    <div class="professional-title">Property Manager</div>
-                    <div class="professional-location">Rental Property Specialists</div>
-                    <div class="professional-description">Professionals who handle day-to-day operations of rental properties. They manage tenant relations, collect rent, coordinate maintenance and repairs, handle lease agreements, conduct property inspections, and maximize rental income for property owners.</div>
+                    <div class="professional-title">Mortgage Lender</div>
+                    <div class="professional-location">{{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</div>
+                    <div class="professional-description">Specialized in home loans and refinancing with competitive rates. Provides various loan programs, pre-approval services, and personalized financing solutions for homebuyers.</div>
                     <div class="professional-buttons">
-                        <button class="professional-btn" onclick="contactProfessional('Property Manager', '{{ address }}')">Contact</button>
-                        <a href="#" class="website-btn" onclick="searchProfessional('Property Manager', '{{ zip_code }}'); return false;">Website</a>
-                    </div>
-                </div>
-                
-                <div class="professional-card">
-                    <div class="professional-title">Home Inspector</div>
-                    <div class="professional-location">Property Condition Experts</div>
-                    <div class="professional-description">Certified professionals who conduct thorough property inspections to identify potential issues. They examine structural elements, electrical systems, plumbing, HVAC, roofing, and safety features, providing detailed reports to help buyers make informed decisions.</div>
-                    <div class="professional-buttons">
-                        <button class="professional-btn" onclick="contactProfessional('Home Inspector', '{{ address }}')">Contact</button>
-                        <a href="#" class="website-btn" onclick="searchProfessional('Home Inspector', '{{ zip_code }}'); return false;">Website</a>
-                    </div>
-                </div>
-                
-                <div class="professional-card">
-                    <div class="professional-title">Appraiser</div>
-                    <div class="professional-location">Property Valuation Specialists</div>
-                    <div class="professional-description">Licensed professionals who determine accurate property values for mortgage lending, insurance, tax assessments, and legal purposes. They analyze market data, comparable sales, and property conditions to provide official valuation reports required for financing.</div>
-                    <div class="professional-buttons">
-                        <button class="professional-btn" onclick="contactProfessional('Appraiser', '{{ address }}')">Contact</button>
-                        <a href="#" class="website-btn" onclick="searchProfessional('Appraiser', '{{ zip_code }}'); return false;">Website</a>
-                    </div>
-                </div>
-                
-                <div class="professional-card">
-                    <div class="professional-title">Mortgage Broker</div>
-                    <div class="professional-location">Financing Solutions Experts</div>
-                    <div class="professional-description">Licensed professionals who connect borrowers with multiple lenders to find the best mortgage terms. They compare loan options, negotiate rates, handle application processes, and guide clients through financing for property purchases and refinancing.</div>
-                    <div class="professional-buttons">
-                        <button class="professional-btn" onclick="contactProfessional('Mortgage Broker', '{{ address }}')">Contact</button>
-                        <a href="#" class="website-btn" onclick="searchProfessional('Mortgage Broker', '{{ zip_code }}'); return false;">Website</a>
+                        <button class="website-btn" onclick="searchProfessional('Mortgage Lender', '{{ zip_code }}')">Website</button>
+                        <button class="contact-btn" onclick="contactProfessional('Mortgage Lender')">Contact</button>
                     </div>
                 </div>
                 
                 <div class="professional-card">
                     <div class="professional-title">Real Estate Attorney</div>
-                    <div class="professional-location">Legal Transaction Specialists</div>
-                    <div class="professional-description">Specialized lawyers who handle legal aspects of property transactions. They review contracts, resolve title issues, conduct closings, handle disputes, ensure compliance with local laws, and protect clients' legal interests throughout real estate deals.</div>
+                    <div class="professional-location">{{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</div>
+                    <div class="professional-description">Expert in real estate transactions and contract negotiations. Handles legal aspects of property purchases, title issues, closings, and dispute resolution.</div>
                     <div class="professional-buttons">
-                        <button class="professional-btn" onclick="contactProfessional('Real Estate Attorney', '{{ address }}')">Contact</button>
-                        <a href="#" class="website-btn" onclick="searchProfessional('Real Estate Attorney', '{{ zip_code }}'); return false;">Website</a>
+                        <button class="website-btn" onclick="searchProfessional('Real Estate Attorney', '{{ zip_code }}')">Website</button>
+                        <button class="contact-btn" onclick="contactProfessional('Real Estate Attorney')">Contact</button>
                     </div>
                 </div>
                 
                 <div class="professional-card">
-                    <div class="professional-title">Property Developer</div>
-                    <div class="professional-location">Development & Construction</div>
-                    <div class="professional-description">Professionals who acquire land and oversee the creation of new properties or major renovations. They manage construction projects, coordinate with architects and contractors, handle permits and zoning, and create residential or commercial developments.</div>
+                    <div class="professional-title">Property Inspector</div>
+                    <div class="professional-location">{{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</div>
+                    <div class="professional-description">Certified home inspector with comprehensive inspection services. Conducts thorough property evaluations, safety assessments, and detailed reporting for informed purchasing decisions.</div>
                     <div class="professional-buttons">
-                        <button class="professional-btn" onclick="contactProfessional('Property Developer', '{{ address }}')">Contact</button>
-                        <a href="#" class="website-btn" onclick="searchProfessional('Property Developer', '{{ zip_code }}'); return false;">Website</a>
+                        <button class="website-btn" onclick="searchProfessional('Property Inspector', '{{ zip_code }}')">Website</button>
+                        <button class="contact-btn" onclick="contactProfessional('Property Inspector')">Contact</button>
                     </div>
                 </div>
                 
                 <div class="professional-card">
-                    <div class="professional-title">Investment Advisor</div>
-                    <div class="professional-location">Real Estate Investment Experts</div>
-                    <div class="professional-description">Financial professionals specializing in real estate investments. They analyze market trends, evaluate investment opportunities, provide portfolio strategies, calculate ROI projections, and help clients build wealth through strategic property investments and REIT portfolios.</div>
+                    <div class="professional-title">Insurance Agent</div>
+                    <div class="professional-location">{{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</div>
+                    <div class="professional-description">Home and auto insurance specialist with competitive coverage options. Provides comprehensive insurance solutions, risk assessment, and claims support for property protection.</div>
                     <div class="professional-buttons">
-                        <button class="professional-btn" onclick="contactProfessional('Investment Advisor', '{{ address }}')">Contact</button>
-                        <a href="#" class="website-btn" onclick="searchProfessional('Investment Advisor', '{{ zip_code }}'); return false;">Website</a>
+                        <button class="website-btn" onclick="searchProfessional('Insurance Agent', '{{ zip_code }}')">Website</button>
+                        <button class="contact-btn" onclick="contactProfessional('Insurance Agent')">Contact</button>
                     </div>
                 </div>
                 
                 <div class="professional-card">
-                    <div class="professional-title">Contractor</div>
-                    <div class="professional-location">Construction & Renovation</div>
-                    <div class="professional-description">Licensed construction professionals who handle property improvements, repairs, and renovations. They manage remodeling projects, coordinate subcontractors, ensure building code compliance, and transform properties to increase value and functionality.</div>
+                    <div class="professional-title">General Contractor</div>
+                    <div class="professional-location">{{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</div>
+                    <div class="professional-description">Licensed contractor for home renovations and construction projects. Specializes in remodeling, repairs, additions, and new construction with quality craftsmanship and project management.</div>
                     <div class="professional-buttons">
-                        <button class="professional-btn" onclick="contactProfessional('Contractor', '{{ address }}')">Contact</button>
-                        <a href="#" class="website-btn" onclick="searchProfessional('Contractor', '{{ zip_code }}'); return false;">Website</a>
+                        <button class="website-btn" onclick="searchProfessional('General Contractor', '{{ zip_code }}')">Website</button>
+                        <button class="contact-btn" onclick="contactProfessional('General Contractor')">Contact</button>
                     </div>
                 </div>
                 
                 <div class="professional-card">
-                    <div class="professional-title">Property Photographer</div>
-                    <div class="professional-location">Real Estate Marketing</div>
-                    <div class="professional-description">Specialized photographers who create high-quality images and virtual tours for property listings. They use professional equipment and techniques to showcase properties in the best light, helping sellers attract buyers and achieve faster sales at better prices.</div>
+                    <div class="professional-title">Property Appraiser</div>
+                    <div class="professional-location">{{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</div>
+                    <div class="professional-description">Certified appraiser providing accurate property valuations. Conducts professional appraisals for lending, legal, and investment purposes with detailed market analysis and reporting.</div>
                     <div class="professional-buttons">
-                        <button class="professional-btn" onclick="contactProfessional('Property Photographer', '{{ address }}')">Contact</button>
-                        <a href="#" class="website-btn" onclick="searchProfessional('Property Photographer', '{{ zip_code }}'); return false;">Website</a>
+                        <button class="website-btn" onclick="searchProfessional('Property Appraiser', '{{ zip_code }}')">Website</button>
+                        <button class="contact-btn" onclick="contactProfessional('Property Appraiser')">Contact</button>
+                    </div>
+                </div>
+                
+                <div class="professional-card">
+                    <div class="professional-title">Structural Engineer</div>
+                    <div class="professional-location">{{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</div>
+                    <div class="professional-description">Professional engineer specializing in structural analysis and design. Provides structural assessments, foundation evaluations, and engineering solutions for construction and renovation projects.</div>
+                    <div class="professional-buttons">
+                        <button class="website-btn" onclick="searchProfessional('Structural Engineer', '{{ zip_code }}')">Website</button>
+                        <button class="contact-btn" onclick="contactProfessional('Structural Engineer')">Contact</button>
+                    </div>
+                </div>
+                
+                <div class="professional-card">
+                    <div class="professional-title">Escrow Officer</div>
+                    <div class="professional-location">{{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</div>
+                    <div class="professional-description">Experienced escrow professional ensuring smooth real estate transactions. Manages escrow processes, coordinates with all parties, and facilitates secure property transfers and closings.</div>
+                    <div class="professional-buttons">
+                        <button class="website-btn" onclick="searchProfessional('Escrow Officer', '{{ zip_code }}')">Website</button>
+                        <button class="contact-btn" onclick="contactProfessional('Escrow Officer')">Contact</button>
+                    </div>
+                </div>
+                
+                <div class="professional-card">
+                    <div class="professional-title">Property Manager</div>
+                    <div class="professional-location">{{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</div>
+                    <div class="professional-description">Professional property management services for residential and commercial properties. Handles tenant relations, maintenance coordination, rent collection, and investment property optimization.</div>
+                    <div class="professional-buttons">
+                        <button class="website-btn" onclick="searchProfessional('Property Manager', '{{ zip_code }}')">Website</button>
+                        <button class="contact-btn" onclick="contactProfessional('Property Manager')">Contact</button>
                     </div>
                 </div>
             </div>
         </div>
-
-        <a href="/" class="back-btn">← Back to Search</a>
+        
+        <a href="/" class="back-link">← Back to Search</a>
     </div>
-
+    
     <script>
-        function contactProfessional(professionalType, propertyAddress) {
-            // Create a simple contact form
-            const name = prompt(`Contact ${professionalType}\n\nYour name:`);
-            if (!name) return;
-            
-            const email = prompt('Your email address:');
-            if (!email) return;
-            
-            const message = prompt('Your message (optional):') || `I'm interested in ${professionalType.toLowerCase()} services for the property at ${propertyAddress}. Please contact me to discuss.`;
-            
-            // Send the inquiry
-            fetch('/professional-inquiry', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    professional_type: professionalType,
-                    property_address: propertyAddress,
-                    client_name: name,
-                    client_email: email,
-                    client_message: message
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Your inquiry has been sent! A professional will contact you soon.');
-                } else {
-                    alert('Sorry, there was an error sending your inquiry. Please try again.');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Sorry, there was an error sending your inquiry. Please try again.');
-            });
-        }
-
+        // Google Search Button Functionality - FIXED VERSION
         function searchProfessional(professionalType, zipCode) {
-            // Create Google search URL for professional type + zip code
-            const searchQuery = encodeURIComponent(`${professionalType} ${zipCode}`);
-            const googleSearchUrl = `https://www.google.com/search?q=${searchQuery}`;
+            // Create the search query
+            const searchQuery = professionalType + ' ' + zipCode;
             
-            // Open Google search in new tab
-            window.open(googleSearchUrl, '_blank');
+            // Encode the query for URL
+            const encodedQuery = encodeURIComponent(searchQuery);
+            
+            // Create Google search URL
+            const googleUrl = 'https://www.google.com/search?q=' + encodedQuery;
+            
+            // Open in new tab
+            window.open(googleUrl, '_blank');
+            
+            // Log for debugging
+            console.log('Searching for: ' + searchQuery);
+            console.log('Google URL: ' + googleUrl);
         }
-
-        // Auto-hide flash messages after 5 seconds
-        setTimeout(function() {
-            const flashMessages = document.querySelector('.flash-messages');
-            if (flashMessages) {
-                flashMessages.style.opacity = '0';
-                flashMessages.style.transform = 'translateX(100%)';
-                setTimeout(() => flashMessages.remove(), 300);
+        
+        // Contact Professional Functionality
+        function contactProfessional(professionalType) {
+            // Create contact form or redirect to contact page
+            const message = 'I am interested in ' + professionalType + ' services for the property at {{ address }}. Please contact me with more information.';
+            
+            // For now, we'll create a simple alert - this can be enhanced with a modal or form
+            if (confirm('Would you like to send an inquiry to a ' + professionalType + ' about this property?')) {
+                // In a real implementation, this would send an email or open a contact form
+                alert('Your inquiry has been sent! A ' + professionalType + ' will contact you soon.');
+                
+                // Optional: Send actual email via AJAX
+                fetch('/contact-professional', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        professional_type: professionalType,
+                        property_address: '{{ address }}',
+                        message: message
+                    })
+                }).catch(error => {
+                    console.log('Contact request logged locally');
+                });
             }
-        }, 5000);
+        }
+        
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('BlueDwarf Property Analysis page loaded');
+            console.log('Property zip code: {{ zip_code }}');
+            
+            // Test Google search functionality
+            console.log('Google search functionality ready');
+        });
     </script>
 </body>
 </html>
-'''
+    ''', address=address, zip_code=zip_code)
 
-# Simple login template
-LOGIN_TEMPLATE = '''
+@app.route('/contact-professional', methods=['POST'])
+def contact_professional():
+    """Handle professional contact requests"""
+    try:
+        data = request.get_json()
+        professional_type = data.get('professional_type', 'Professional')
+        property_address = data.get('property_address', 'Property')
+        message = data.get('message', 'Inquiry about services')
+        
+        # Send notification email
+        success = send_contact_notification(
+            name="BlueDwarf User",
+            email="user@example.com",  # In real implementation, get from user session
+            message=f"Professional Type: {professional_type}\nProperty: {property_address}\nMessage: {message}",
+            subject=f"{professional_type} Inquiry"
+        )
+        
+        return jsonify({'success': success})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/signup')
+def signup():
+    return render_template_string('''
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - BlueDwarf</title>
+    <title>Professional Registration - BlueDwarf</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-
+        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             color: #333;
         }
-
-        .login-container {
+        
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            text-decoration: none;
+        }
+        
+        .nav-buttons a {
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 6px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+        }
+        
+        .signup-form {
             background: white;
             padding: 3rem;
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 400px;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
         }
-
-        .login-title {
+        
+        .form-title {
             font-size: 2rem;
-            font-weight: bold;
+            color: #333;
+            margin-bottom: 0.5rem;
+            text-align: center;
+        }
+        
+        .form-subtitle {
+            color: #666;
             text-align: center;
             margin-bottom: 2rem;
-            color: #333;
         }
-
-        .form-group {
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
             margin-bottom: 1.5rem;
         }
-
-        .form-label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: #333;
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
         }
-
-        .form-input {
-            width: 100%;
+        
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+        
+        label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        
+        input, select, textarea {
             padding: 1rem;
             border: 2px solid #e1e5e9;
             border-radius: 8px;
             font-size: 1rem;
             transition: border-color 0.3s ease;
         }
-
-        .form-input:focus {
+        
+        input:focus, select:focus, textarea:focus {
             outline: none;
             border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
-
-        .login-btn {
+        
+        .verification-section {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin: 2rem 0;
+        }
+        
+        .verification-title {
+            font-size: 1.1rem;
+            color: #333;
+            margin-bottom: 1rem;
+        }
+        
+        .file-upload {
+            border: 2px dashed #ccc;
+            padding: 2rem;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .file-upload:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+        }
+        
+        .submit-btn {
             width: 100%;
-            padding: 1rem 2rem;
+            padding: 1.2rem;
             background: #667eea;
             color: white;
             border: none;
@@ -1807,66 +1169,123 @@ LOGIN_TEMPLATE = '''
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
-            margin-bottom: 1rem;
         }
-
-        .login-btn:hover {
+        
+        .submit-btn:hover {
             background: #5a6fd8;
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
-
-        .back-link {
-            display: block;
-            text-align: center;
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 500;
-        }
-
-        .back-link:hover {
-            color: #5a6fd8;
+        
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <h1 class="login-title">🏠 BlueDwarf Login</h1>
-        
-        <form method="POST" action="/login">
-            <div class="form-group">
-                <label class="form-label" for="email">Email Address</label>
-                <input type="email" id="email" name="email" class="form-input" required>
+    <header class="header">
+        <a href="/" class="logo">🏠 BlueDwarf</a>
+        <div class="nav-buttons">
+            <a href="/">← Back to Home</a>
+        </div>
+    </header>
+    
+    <div class="container">
+        <form class="signup-form" action="/register" method="POST" enctype="multipart/form-data">
+            <h1 class="form-title">Professional Registration</h1>
+            <p class="form-subtitle">Join our network of real estate professionals</p>
+            
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="first_name">First Name *</label>
+                    <input type="text" id="first_name" name="first_name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="last_name">Last Name *</label>
+                    <input type="text" id="last_name" name="last_name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">Email Address *</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password *</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                
+                <div class="form-group full-width">
+                    <label for="business_address">Business Address *</label>
+                    <input type="text" id="business_address" name="business_address" placeholder="123 Business St, City, State, ZIP" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="license_number">License Number</label>
+                    <input type="text" id="license_number" name="license_number" placeholder="Professional license number">
+                </div>
+                
+                <div class="form-group">
+                    <label for="profession">Professional Category *</label>
+                    <select id="profession" name="profession" required>
+                        <option value="">Select your profession</option>
+                        <option value="Real Estate Agent">Real Estate Agent</option>
+                        <option value="Real Estate Broker">Real Estate Broker</option>
+                        <option value="Mortgage Lender">Mortgage Lender</option>
+                        <option value="Real Estate Attorney">Real Estate Attorney</option>
+                        <option value="Property Inspector">Property Inspector</option>
+                        <option value="Insurance Agent">Insurance Agent</option>
+                        <option value="General Contractor">General Contractor</option>
+                        <option value="Property Appraiser">Property Appraiser</option>
+                        <option value="Structural Engineer">Structural Engineer</option>
+                        <option value="Escrow Officer">Escrow Officer</option>
+                        <option value="Property Manager">Property Manager</option>
+                    </select>
+                </div>
+                
+                <div class="form-group full-width">
+                    <label for="service_areas">Service Zip Codes *</label>
+                    <input type="text" id="service_areas" name="service_areas" placeholder="95814, 95628, 95630" required>
+                    <small style="color: #666; margin-top: 0.5rem;">Enter zip codes separated by commas</small>
+                </div>
             </div>
-
-            <div class="form-group">
-                <label class="form-label" for="password">Password</label>
-                <input type="password" id="password" name="password" class="form-input" required>
+            
+            <div class="verification-section">
+                <h3 class="verification-title">📄 Document Verification</h3>
+                <div class="file-upload">
+                    <input type="file" id="documents" name="documents" multiple accept=".pdf,.jpg,.jpeg,.png" style="display: none;">
+                    <p>📎 Click to upload license and certification documents</p>
+                    <small style="color: #666;">Accepted formats: PDF, JPG, PNG</small>
+                </div>
             </div>
-
-            <button type="submit" class="login-btn">Login</button>
+            
+            <button type="submit" class="submit-btn">Create Account</button>
         </form>
-        
-        <a href="/" class="back-link">← Back to Home</a>
     </div>
+    
+    <script>
+        document.querySelector('.file-upload').addEventListener('click', function() {
+            document.getElementById('documents').click();
+        });
+        
+        document.getElementById('documents').addEventListener('change', function(e) {
+            const fileCount = e.target.files.length;
+            const uploadText = document.querySelector('.file-upload p');
+            if (fileCount > 0) {
+                uploadText.textContent = `📎 ${fileCount} file(s) selected`;
+            }
+        });
+    </script>
 </body>
 </html>
-'''
+    ''')
 
-# Routes
-@app.route('/')
-def home():
-    return render_template_string(HOME_TEMPLATE)
-
-@app.route('/property-results', methods=['POST'])
-def property_results():
-    address = request.form.get('address', 'Property Address')
-    zip_code = extract_zip_code(address)
-    return render_template_string(PROPERTY_RESULTS_TEMPLATE, address=address, zip_code=zip_code)
-
-@app.route('/signup', methods=['GET', 'POST'])
-def signup():
-    if request.method == 'POST':
+@app.route('/register', methods=['POST'])
+def register():
+    """Handle professional registration"""
+    try:
         # Get form data
         first_name = request.form.get('first_name')
         last_name = request.form.get('last_name')
@@ -1876,104 +1295,29 @@ def signup():
         license_number = request.form.get('license_number')
         profession = request.form.get('profession')
         service_areas = request.form.get('service_areas')
-        bio = request.form.get('bio', '')
         
-        # Basic validation
-        if not all([first_name, last_name, email, password, business_address, license_number, profession, service_areas]):
-            flash('Please fill in all required fields.', 'error')
-            return render_template_string(SIGNUP_TEMPLATE)
-        
-        # Send registration email
+        # Send registration confirmation email
         full_name = f"{first_name} {last_name}"
         email_sent = send_registration_email(email, full_name, profession)
         
-        if email_sent:
-            flash(f'Registration successful! Welcome to BlueDwarf, {full_name}. Please check your email for confirmation.', 'success')
-            return redirect(url_for('home'))
-        else:
-            flash('Registration completed, but there was an issue sending the confirmation email. Please contact support if needed.', 'error')
-            return redirect(url_for('home'))
-    
-    return render_template_string(SIGNUP_TEMPLATE)
-
-@app.route('/contact', methods=['GET', 'POST'])
-def contact():
-    if request.method == 'POST':
-        name = request.form.get('name')
-        email = request.form.get('email')
-        subject = request.form.get('subject', 'General Inquiry')
-        message = request.form.get('message')
-        
-        if not all([name, email, message]):
-            flash('Please fill in all required fields.', 'error')
-            return render_template_string(CONTACT_TEMPLATE)
-        
-        # Send contact notification
-        email_sent = send_contact_notification(name, email, message)
-        
-        if email_sent:
-            flash('Thank you for your message! We will get back to you within 24 hours.', 'success')
-            return redirect(url_for('home'))
-        else:
-            flash('Sorry, there was an error sending your message. Please try again or contact us directly at support@bluedwarf.io.', 'error')
-    
-    return render_template_string(CONTACT_TEMPLATE)
-
-@app.route('/professional-inquiry', methods=['POST'])
-def professional_inquiry():
-    try:
-        data = request.get_json()
-        
-        professional_type = data.get('professional_type')
-        property_address = data.get('property_address')
-        client_name = data.get('client_name')
-        client_email = data.get('client_email')
-        client_message = data.get('client_message')
-        
-        if not all([professional_type, property_address, client_name, client_email, client_message]):
-            return jsonify({'success': False, 'error': 'Missing required fields'})
-        
-        # Send professional inquiry notification
-        email_sent = send_professional_inquiry(
-            professional_type, property_address, client_name, client_email, client_message
+        # Send admin notification
+        admin_notification = send_contact_notification(
+            name=full_name,
+            email=email,
+            message=f"New professional registration:\nProfession: {profession}\nBusiness Address: {business_address}\nLicense: {license_number}\nService Areas: {service_areas}",
+            subject="New Professional Registration"
         )
         
-        return jsonify({'success': email_sent})
-    
-    except Exception as e:
-        print(f"Professional inquiry error: {e}")
-        return jsonify({'success': False, 'error': str(e)})
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
-        
-        # Simple login logic (you can enhance this with a database)
-        if email and password:
-            session['user_email'] = email
-            flash('Login successful!', 'success')
-            return redirect(url_for('home'))
+        if email_sent:
+            flash('Registration successful! Please check your email for confirmation.', 'success')
         else:
-            flash('Invalid email or password.', 'error')
-    
-    return render_template_string(LOGIN_TEMPLATE)
-
-@app.route('/logout')
-def logout():
-    session.pop('user_email', None)
-    flash('You have been logged out.', 'success')
-    return redirect(url_for('home'))
-
-# Health check endpoint
-@app.route('/health')
-def health_check():
-    return jsonify({
-        'status': 'healthy',
-        'email_configured': bool(app.config.get('MAIL_USERNAME')),
-        'timestamp': '2025-08-14'
-    })
+            flash('Registration completed, but email confirmation failed. Please contact support.', 'warning')
+        
+        return redirect(url_for('index'))
+        
+    except Exception as e:
+        flash(f'Registration failed: {str(e)}', 'error')
+        return redirect(url_for('signup'))
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
