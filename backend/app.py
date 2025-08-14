@@ -2,6 +2,7 @@ from flask import Flask, render_template_string, request, redirect, url_for, fla
 from flask_mail import Mail, Message
 import os
 import re
+import urllib.parse
 
 app = Flask(__name__)
 app.secret_key = 'bluedwarf-secret-key-2025'
@@ -18,6 +19,9 @@ app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME', 'support@blu
 # Initialize Flask-Mail
 mail = Mail(app)
 
+# Google Maps API Key - Replace with your actual key
+GOOGLE_MAPS_API_KEY = "YOUR_GOOGLE_MAPS_API_KEY"
+
 def extract_zip_code(address):
     """Extract zip code from address string"""
     # Look for 5-digit zip code pattern
@@ -25,6 +29,10 @@ def extract_zip_code(address):
     if zip_match:
         return zip_match.group(1)
     return "95814"  # Default Sacramento zip code
+
+def encode_address_for_maps(address):
+    """Properly encode address for Google Maps API"""
+    return urllib.parse.quote_plus(address)
 
 # Email templates
 def send_registration_email(user_email, user_name, profession):
@@ -339,6 +347,7 @@ def index():
 def property_results():
     address = request.form.get('address', '123 Main Street, Sacramento, CA 95814')
     zip_code = extract_zip_code(address)
+    encoded_address = encode_address_for_maps(address)
     
     return render_template_string('''
 <!DOCTYPE html>
@@ -450,10 +459,6 @@ def property_results():
             border: none;
             border-radius: 10px;
             background: #f8f9fa;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #666;
         }
         
         .stats-grid {
@@ -537,8 +542,16 @@ def property_results():
             justify-content: space-between;
             align-items: center;
             padding: 1rem;
-            border-bottom: 1px solid #eee;
-            margin-bottom: 1rem;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background-color 0.3s ease;
+        }
+        
+        .comparable-item:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .comparable-item:last-child {
+            border-bottom: none;
         }
         
         .comparable-number {
@@ -554,17 +567,17 @@ def property_results():
             margin-right: 1rem;
         }
         
-        .comparable-details {
+        .comparable-info {
             flex: 1;
         }
         
         .comparable-address {
             font-weight: 600;
             color: #333;
-            margin-bottom: 0.3rem;
+            margin-bottom: 0.25rem;
         }
         
-        .comparable-specs {
+        .comparable-details {
             color: #666;
             font-size: 0.9rem;
         }
@@ -585,61 +598,56 @@ def property_results():
         
         .professionals-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
             gap: 1.5rem;
+            margin-top: 1.5rem;
         }
         
         .professional-card {
             border: 1px solid #e1e5e9;
-            border-radius: 12px;
+            border-radius: 10px;
             padding: 1.5rem;
             transition: all 0.3s ease;
         }
         
         .professional-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            border-color: #667eea;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.1);
         }
         
         .professional-title {
             font-size: 1.1rem;
             font-weight: 600;
             color: #667eea;
-            margin-bottom: 0.3rem;
+            margin-bottom: 0.5rem;
         }
         
         .professional-location {
             color: #666;
             font-size: 0.9rem;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
         }
         
         .professional-description {
             color: #555;
-            font-size: 0.9rem;
-            line-height: 1.4;
-            margin-bottom: 1.5rem;
+            line-height: 1.5;
+            margin-bottom: 1rem;
         }
         
         .professional-buttons {
             display: flex;
-            gap: 0.5rem;
-        }
-        
-        .website-btn, .contact-btn {
-            flex: 1;
-            padding: 0.7rem;
-            border: none;
-            border-radius: 6px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
+            gap: 0.75rem;
         }
         
         .website-btn {
             background: #667eea;
             color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
         }
         
         .website-btn:hover {
@@ -647,24 +655,13 @@ def property_results():
             transform: translateY(-1px);
         }
         
-        .contact-btn {
-            background: #f8f9fa;
-            color: #667eea;
-            border: 1px solid #667eea;
-        }
-        
-        .contact-btn:hover {
-            background: #667eea;
-            color: white;
-        }
-        
         .back-link {
             display: inline-block;
             margin-top: 2rem;
-            padding: 1rem 2rem;
-            background: rgba(255, 255, 255, 0.2);
             color: white;
             text-decoration: none;
+            padding: 0.75rem 1.5rem;
+            background: rgba(255, 255, 255, 0.2);
             border-radius: 8px;
             transition: all 0.3s ease;
         }
@@ -678,21 +675,18 @@ def property_results():
                 grid-template-columns: 1fr;
             }
             
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+            
             .professionals-grid {
                 grid-template-columns: 1fr;
             }
             
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            
             .comparable-item {
                 flex-direction: column;
-                text-align: center;
-            }
-            
-            .professional-buttons {
-                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
             }
         }
     </style>
@@ -701,8 +695,8 @@ def property_results():
     <header class="header">
         <a href="/" class="logo">🏠 BlueDwarf</a>
         <div class="nav-buttons">
-            <a href="#">Login</a>
-            <a href="/signup">Get Started</a>
+            <a href="#" class="login-btn">Login</a>
+            <a href="/signup" class="signup-btn">Get Started</a>
         </div>
     </header>
     
@@ -714,18 +708,20 @@ def property_results():
         
         <div class="maps-section">
             <div class="map-container">
-                <h3 class="map-title">🏠 Street View</h3>
-                <iframe class="map-frame" 
-                        src="https://www.google.com/maps/embed/v1/streetview?key=AIzaSyDe8QxfkBSo2Ids9PWK24-aKgqbI9du9B4&location={{ address }}&heading=210&pitch=10&fov=35"
-                        allowfullscreen>
+                <h2 class="map-title">🏠 Street View</h2>
+                <iframe 
+                    class="map-frame"
+                    src="https://www.google.com/maps/embed/v1/streetview?key={{ api_key }}&location={{ encoded_address }}&heading=0&pitch=0&fov=90"
+                    allowfullscreen>
                 </iframe>
             </div>
             
             <div class="map-container">
-                <h3 class="map-title">🛰️ Aerial View (2 blocks)</h3>
-                <iframe class="map-frame"
-                        src="https://www.google.com/maps/embed/v1/view?key=AIzaSyDe8QxfkBSo2Ids9PWK24-aKgqbI9du9B4&center={{ address }}&zoom=16&maptype=satellite"
-                        allowfullscreen>
+                <h2 class="map-title">🛰️ Aerial View (2 blocks)</h2>
+                <iframe 
+                    class="map-frame"
+                    src="https://www.google.com/maps/embed/v1/view?key={{ api_key }}&center={{ encoded_address }}&zoom=17&maptype=satellite"
+                    allowfullscreen>
                 </iframe>
             </div>
         </div>
@@ -758,7 +754,7 @@ def property_results():
         </div>
         
         <div class="rental-analysis">
-            <h3 class="section-title">📊 Rental Rate Analysis</h3>
+            <h2 class="section-title">📊 Rental Rate Analysis</h2>
             <div class="rental-range">
                 <div class="rental-indicator"></div>
             </div>
@@ -770,170 +766,154 @@ def property_results():
         </div>
         
         <div class="comparables-section">
-            <h3 class="section-title">🏘️ Comparable Properties</h3>
+            <h2 class="section-title">🏘️ Comparable Properties</h2>
             
             <div class="comparable-item">
                 <div class="comparable-number">1</div>
-                <div class="comparable-details">
+                <div class="comparable-info">
                     <div class="comparable-address">456 Oak Avenue</div>
-                    <div class="comparable-specs">3 bed • 2 bath • 2,080 sq ft • 0.3 mi</div>
+                    <div class="comparable-details">3 bed • 2 bath • 2,080 sq ft • 0.3 mi</div>
                 </div>
                 <div class="comparable-price">$472,000</div>
             </div>
             
             <div class="comparable-item">
                 <div class="comparable-number">2</div>
-                <div class="comparable-details">
+                <div class="comparable-info">
                     <div class="comparable-address">789 Maple Street</div>
-                    <div class="comparable-specs">4 bed • 3 bath • 2,340 sq ft • 0.4 mi</div>
+                    <div class="comparable-details">4 bed • 3 bath • 2,340 sq ft • 0.4 mi</div>
                 </div>
                 <div class="comparable-price">$518,000</div>
             </div>
             
             <div class="comparable-item">
                 <div class="comparable-number">3</div>
-                <div class="comparable-details">
+                <div class="comparable-info">
                     <div class="comparable-address">321 Elm Drive</div>
-                    <div class="comparable-specs">3 bed • 2.5 bath • 2,200 sq ft • 0.5 mi</div>
+                    <div class="comparable-details">3 bed • 2.5 bath • 2,200 sq ft • 0.5 mi</div>
                 </div>
                 <div class="comparable-price">$495,000</div>
             </div>
             
             <div class="comparable-item">
                 <div class="comparable-number">4</div>
-                <div class="comparable-details">
+                <div class="comparable-info">
                     <div class="comparable-address">654 Cedar Lane</div>
-                    <div class="comparable-specs">3 bed • 2 bath • 1,950 sq ft • 0.6 mi</div>
+                    <div class="comparable-details">3 bed • 2 bath • 1,950 sq ft • 0.6 mi</div>
                 </div>
                 <div class="comparable-price">$458,000</div>
             </div>
             
             <div class="comparable-item">
                 <div class="comparable-number">5</div>
-                <div class="comparable-details">
+                <div class="comparable-info">
                     <div class="comparable-address">987 Birch Court</div>
-                    <div class="comparable-specs">4 bed • 2.5 bath • 2,450 sq ft • 0.7 mi</div>
+                    <div class="comparable-details">4 bed • 2.5 bath • 2,450 sq ft • 0.7 mi</div>
                 </div>
                 <div class="comparable-price">$535,000</div>
             </div>
-            
-            <iframe class="map-frame" style="margin-top: 1rem;"
-                    src="https://www.google.com/maps/embed/v1/view?key=AIzaSyDe8QxfkBSo2Ids9PWK24-aKgqbI9du9B4&center={{ address }}&zoom=15"
-                    allowfullscreen>
-            </iframe>
         </div>
         
         <div class="professionals-section">
-            <h3 class="section-title">👥 Local Professionals in {{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</h3>
+            <h2 class="section-title">👥 Local Professionals in {{ zip_code }}</h2>
             
             <div class="professionals-grid">
                 <div class="professional-card">
                     <div class="professional-title">Real Estate Agent</div>
-                    <div class="professional-location">{{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</div>
-                    <div class="professional-description">Experienced agent specializing in residential properties and first-time buyers. Provides market analysis, negotiation expertise, and comprehensive transaction support from listing to closing.</div>
+                    <div class="professional-location">{{ zip_code }}</div>
+                    <div class="professional-description">Experienced agent specializing in residential properties and first-time buyers</div>
                     <div class="professional-buttons">
                         <button class="website-btn" onclick="searchProfessional('Real Estate Agent', '{{ zip_code }}')">Website</button>
-                        <button class="contact-btn" onclick="contactProfessional('Real Estate Agent')">Contact</button>
                     </div>
                 </div>
                 
                 <div class="professional-card">
                     <div class="professional-title">Real Estate Broker</div>
-                    <div class="professional-location">{{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</div>
-                    <div class="professional-description">Licensed broker with extensive market knowledge and investment expertise. Offers advanced real estate services, brokerage operations, and complex transaction management.</div>
+                    <div class="professional-location">{{ zip_code }}</div>
+                    <div class="professional-description">Licensed broker with extensive market knowledge and investment expertise</div>
                     <div class="professional-buttons">
                         <button class="website-btn" onclick="searchProfessional('Real Estate Broker', '{{ zip_code }}')">Website</button>
-                        <button class="contact-btn" onclick="contactProfessional('Real Estate Broker')">Contact</button>
                     </div>
                 </div>
                 
                 <div class="professional-card">
                     <div class="professional-title">Mortgage Lender</div>
-                    <div class="professional-location">{{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</div>
-                    <div class="professional-description">Specialized in home loans and refinancing with competitive rates. Provides various loan programs, pre-approval services, and personalized financing solutions for homebuyers.</div>
+                    <div class="professional-location">{{ zip_code }}</div>
+                    <div class="professional-description">Specialized in home loans and refinancing with competitive rates</div>
                     <div class="professional-buttons">
                         <button class="website-btn" onclick="searchProfessional('Mortgage Lender', '{{ zip_code }}')">Website</button>
-                        <button class="contact-btn" onclick="contactProfessional('Mortgage Lender')">Contact</button>
                     </div>
                 </div>
                 
                 <div class="professional-card">
                     <div class="professional-title">Real Estate Attorney</div>
-                    <div class="professional-location">{{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</div>
-                    <div class="professional-description">Expert in real estate transactions and contract negotiations. Handles legal aspects of property purchases, title issues, closings, and dispute resolution.</div>
+                    <div class="professional-location">{{ zip_code }}</div>
+                    <div class="professional-description">Expert in real estate transactions and contract negotiations</div>
                     <div class="professional-buttons">
                         <button class="website-btn" onclick="searchProfessional('Real Estate Attorney', '{{ zip_code }}')">Website</button>
-                        <button class="contact-btn" onclick="contactProfessional('Real Estate Attorney')">Contact</button>
                     </div>
                 </div>
                 
                 <div class="professional-card">
                     <div class="professional-title">Property Inspector</div>
-                    <div class="professional-location">{{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</div>
-                    <div class="professional-description">Certified home inspector with comprehensive inspection services. Conducts thorough property evaluations, safety assessments, and detailed reporting for informed purchasing decisions.</div>
+                    <div class="professional-location">{{ zip_code }}</div>
+                    <div class="professional-description">Certified home inspector with comprehensive inspection services</div>
                     <div class="professional-buttons">
                         <button class="website-btn" onclick="searchProfessional('Property Inspector', '{{ zip_code }}')">Website</button>
-                        <button class="contact-btn" onclick="contactProfessional('Property Inspector')">Contact</button>
                     </div>
                 </div>
                 
                 <div class="professional-card">
                     <div class="professional-title">Insurance Agent</div>
-                    <div class="professional-location">{{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</div>
-                    <div class="professional-description">Home and auto insurance specialist with competitive coverage options. Provides comprehensive insurance solutions, risk assessment, and claims support for property protection.</div>
+                    <div class="professional-location">{{ zip_code }}</div>
+                    <div class="professional-description">Home and auto insurance specialist with competitive coverage options</div>
                     <div class="professional-buttons">
                         <button class="website-btn" onclick="searchProfessional('Insurance Agent', '{{ zip_code }}')">Website</button>
-                        <button class="contact-btn" onclick="contactProfessional('Insurance Agent')">Contact</button>
                     </div>
                 </div>
                 
                 <div class="professional-card">
                     <div class="professional-title">General Contractor</div>
-                    <div class="professional-location">{{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</div>
-                    <div class="professional-description">Licensed contractor for home renovations and construction projects. Specializes in remodeling, repairs, additions, and new construction with quality craftsmanship and project management.</div>
+                    <div class="professional-location">{{ zip_code }}</div>
+                    <div class="professional-description">Licensed contractor for home renovations and construction projects</div>
                     <div class="professional-buttons">
                         <button class="website-btn" onclick="searchProfessional('General Contractor', '{{ zip_code }}')">Website</button>
-                        <button class="contact-btn" onclick="contactProfessional('General Contractor')">Contact</button>
                     </div>
                 </div>
                 
                 <div class="professional-card">
                     <div class="professional-title">Property Appraiser</div>
-                    <div class="professional-location">{{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</div>
-                    <div class="professional-description">Certified appraiser providing accurate property valuations. Conducts professional appraisals for lending, legal, and investment purposes with detailed market analysis and reporting.</div>
+                    <div class="professional-location">{{ zip_code }}</div>
+                    <div class="professional-description">Certified appraiser providing accurate property valuations</div>
                     <div class="professional-buttons">
                         <button class="website-btn" onclick="searchProfessional('Property Appraiser', '{{ zip_code }}')">Website</button>
-                        <button class="contact-btn" onclick="contactProfessional('Property Appraiser')">Contact</button>
                     </div>
                 </div>
                 
                 <div class="professional-card">
                     <div class="professional-title">Structural Engineer</div>
-                    <div class="professional-location">{{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</div>
-                    <div class="professional-description">Professional engineer specializing in structural analysis and design. Provides structural assessments, foundation evaluations, and engineering solutions for construction and renovation projects.</div>
+                    <div class="professional-location">{{ zip_code }}</div>
+                    <div class="professional-description">Professional engineer specializing in structural analysis and design</div>
                     <div class="professional-buttons">
                         <button class="website-btn" onclick="searchProfessional('Structural Engineer', '{{ zip_code }}')">Website</button>
-                        <button class="contact-btn" onclick="contactProfessional('Structural Engineer')">Contact</button>
                     </div>
                 </div>
                 
                 <div class="professional-card">
                     <div class="professional-title">Escrow Officer</div>
-                    <div class="professional-location">{{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</div>
-                    <div class="professional-description">Experienced escrow professional ensuring smooth real estate transactions. Manages escrow processes, coordinates with all parties, and facilitates secure property transfers and closings.</div>
+                    <div class="professional-location">{{ zip_code }}</div>
+                    <div class="professional-description">Experienced escrow professional ensuring smooth real estate transactions</div>
                     <div class="professional-buttons">
                         <button class="website-btn" onclick="searchProfessional('Escrow Officer', '{{ zip_code }}')">Website</button>
-                        <button class="contact-btn" onclick="contactProfessional('Escrow Officer')">Contact</button>
                     </div>
                 </div>
                 
                 <div class="professional-card">
                     <div class="professional-title">Property Manager</div>
-                    <div class="professional-location">{{ address.split(',')[-2].strip() if ',' in address else 'Local Area' }}</div>
-                    <div class="professional-description">Professional property management services for residential and commercial properties. Handles tenant relations, maintenance coordination, rent collection, and investment property optimization.</div>
+                    <div class="professional-location">{{ zip_code }}</div>
+                    <div class="professional-description">Professional property management services for residential and commercial properties</div>
                     <div class="professional-buttons">
                         <button class="website-btn" onclick="searchProfessional('Property Manager', '{{ zip_code }}')">Website</button>
-                        <button class="contact-btn" onclick="contactProfessional('Property Manager')">Contact</button>
                     </div>
                 </div>
             </div>
@@ -943,85 +923,70 @@ def property_results():
     </div>
     
     <script>
-        // Google Search Button Functionality - FIXED VERSION
-        function searchProfessional(professionalType, zipCode) {
-            // Create the search query
-            const searchQuery = professionalType + ' ' + zipCode;
-            
-            // Encode the query for URL
-            const encodedQuery = encodeURIComponent(searchQuery);
-            
-            // Create Google search URL
-            const googleUrl = 'https://www.google.com/search?q=' + encodedQuery;
-            
-            // Open in new tab
-            window.open(googleUrl, '_blank');
-            
-            // Log for debugging
-            console.log('Searching for: ' + searchQuery);
-            console.log('Google URL: ' + googleUrl);
-        }
+        // BlueDwarf Platform - Working Google Search Button Fix
         
-        // Contact Professional Functionality
-        function contactProfessional(professionalType) {
-            // Create contact form or redirect to contact page
-            const message = 'I am interested in ' + professionalType + ' services for the property at {{ address }}. Please contact me with more information.';
-            
-            // For now, we'll create a simple alert - this can be enhanced with a modal or form
-            if (confirm('Would you like to send an inquiry to a ' + professionalType + ' about this property?')) {
-                // In a real implementation, this would send an email or open a contact form
-                alert('Your inquiry has been sent! A ' + professionalType + ' will contact you soon.');
+        // Main Google search function
+        function searchProfessional(professionalType, zipCode) {
+            try {
+                // Validate inputs
+                if (!professionalType || !zipCode) {
+                    console.error('BlueDwarf: Missing professional type or zip code');
+                    alert('Unable to search - missing location information');
+                    return;
+                }
+
+                // Create search query
+                const searchQuery = professionalType + ' ' + zipCode;
                 
-                // Optional: Send actual email via AJAX
-                fetch('/contact-professional', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        professional_type: professionalType,
-                        property_address: '{{ address }}',
-                        message: message
-                    })
-                }).catch(error => {
-                    console.log('Contact request logged locally');
-                });
+                // Encode for URL
+                const encodedQuery = encodeURIComponent(searchQuery);
+                
+                // Create Google search URL
+                const googleUrl = 'https://www.google.com/search?q=' + encodedQuery;
+                
+                // Log for debugging
+                console.log('BlueDwarf: Searching for "' + searchQuery + '"');
+                console.log('BlueDwarf: Opening URL: ' + googleUrl);
+                
+                // Open in new tab
+                window.open(googleUrl, '_blank');
+                
+            } catch (error) {
+                console.error('BlueDwarf: Error in searchProfessional:', error);
+                alert('Unable to open search - please try again');
             }
         }
-        
-        // Initialize page
+
+        // Contact professional function
+        function contactProfessional(professionalType) {
+            try {
+                const message = 'I am interested in connecting with a ' + professionalType + ' for property services. Please provide contact information or have them reach out to me.';
+                const subject = encodeURIComponent('BlueDwarf Inquiry: ' + professionalType + ' Services');
+                const body = encodeURIComponent(message);
+                const mailtoUrl = 'mailto:support@bluedwarf.io?subject=' + subject + '&body=' + body;
+                
+                window.location.href = mailtoUrl;
+                
+            } catch (error) {
+                console.error('BlueDwarf: Error in contactProfessional:', error);
+                alert('Unable to create contact - please try again');
+            }
+        }
+
+        // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('BlueDwarf Property Analysis page loaded');
-            console.log('Property zip code: {{ zip_code }}');
-            
-            // Test Google search functionality
-            console.log('Google search functionality ready');
+            console.log('BlueDwarf: Google search functionality loaded successfully');
         });
+
+        // Make functions globally available
+        window.searchProfessional = searchProfessional;
+        window.contactProfessional = contactProfessional;
+
+        console.log('BlueDwarf: Google search button fix loaded');
     </script>
 </body>
 </html>
-    ''', address=address, zip_code=zip_code)
-
-@app.route('/contact-professional', methods=['POST'])
-def contact_professional():
-    """Handle professional contact requests"""
-    try:
-        data = request.get_json()
-        professional_type = data.get('professional_type', 'Professional')
-        property_address = data.get('property_address', 'Property')
-        message = data.get('message', 'Inquiry about services')
-        
-        # Send notification email
-        success = send_contact_notification(
-            name="BlueDwarf User",
-            email="user@example.com",  # In real implementation, get from user session
-            message=f"Professional Type: {professional_type}\nProperty: {property_address}\nMessage: {message}",
-            subject=f"{professional_type} Inquiry"
-        )
-        
-        return jsonify({'success': success})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+    ''', address=address, zip_code=zip_code, encoded_address=encoded_address, api_key=GOOGLE_MAPS_API_KEY)
 
 @app.route('/signup')
 def signup():
@@ -1062,63 +1027,64 @@ def signup():
             text-decoration: none;
         }
         
+        .nav-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+        
         .nav-buttons a {
-            color: white;
-            text-decoration: none;
             padding: 0.5rem 1rem;
-            border: 1px solid rgba(255, 255, 255, 0.3);
             border-radius: 6px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .nav-buttons a:hover {
+            background: rgba(255, 255, 255, 0.1);
         }
         
         .container {
-            max-width: 800px;
+            max-width: 600px;
             margin: 2rem auto;
             padding: 2rem;
         }
         
-        .signup-form {
+        .signup-card {
             background: white;
             padding: 3rem;
             border-radius: 15px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
         }
         
-        .form-title {
+        .signup-title {
             font-size: 2rem;
             color: #333;
             margin-bottom: 0.5rem;
             text-align: center;
         }
         
-        .form-subtitle {
+        .signup-subtitle {
             color: #666;
             text-align: center;
             margin-bottom: 2rem;
         }
         
-        .form-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
+        .form-group {
             margin-bottom: 1.5rem;
         }
         
-        .form-group {
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .form-group.full-width {
-            grid-column: 1 / -1;
-        }
-        
-        label {
-            font-weight: 600;
-            color: #333;
+        .form-label {
+            display: block;
             margin-bottom: 0.5rem;
+            color: #333;
+            font-weight: 500;
         }
         
-        input, select, textarea {
+        .form-input, .form-select {
+            width: 100%;
             padding: 1rem;
             border: 2px solid #e1e5e9;
             border-radius: 8px;
@@ -1126,46 +1092,19 @@ def signup():
             transition: border-color 0.3s ease;
         }
         
-        input:focus, select:focus, textarea:focus {
+        .form-input:focus, .form-select:focus {
             outline: none;
             border-color: #667eea;
         }
         
-        .verification-section {
-            background: #f8f9fa;
-            padding: 1.5rem;
-            border-radius: 10px;
-            margin: 2rem 0;
-        }
-        
-        .verification-title {
-            font-size: 1.1rem;
-            color: #333;
-            margin-bottom: 1rem;
-        }
-        
-        .file-upload {
-            border: 2px dashed #ccc;
-            padding: 2rem;
-            text-align: center;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .file-upload:hover {
-            border-color: #667eea;
-            background: rgba(102, 126, 234, 0.05);
-        }
-        
         .submit-btn {
             width: 100%;
-            padding: 1.2rem;
+            padding: 1rem;
             background: #667eea;
             color: white;
             border: none;
             border-radius: 8px;
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
@@ -1176,10 +1115,22 @@ def signup():
             transform: translateY(-2px);
         }
         
-        @media (max-width: 768px) {
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            border: 1px solid #f5c6cb;
         }
     </style>
 </head>
@@ -1192,44 +1143,32 @@ def signup():
     </header>
     
     <div class="container">
-        <form class="signup-form" action="/register" method="POST" enctype="multipart/form-data">
-            <h1 class="form-title">Professional Registration</h1>
-            <p class="form-subtitle">Join our network of real estate professionals</p>
+        <div class="signup-card">
+            <h1 class="signup-title">Join Our Professional Network</h1>
+            <p class="signup-subtitle">Connect with property buyers and sellers in your area</p>
             
-            <div class="form-grid">
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="success-message">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <form method="POST" action="/register">
                 <div class="form-group">
-                    <label for="first_name">First Name *</label>
-                    <input type="text" id="first_name" name="first_name" required>
+                    <label class="form-label" for="name">Full Name</label>
+                    <input type="text" id="name" name="name" class="form-input" required>
                 </div>
                 
                 <div class="form-group">
-                    <label for="last_name">Last Name *</label>
-                    <input type="text" id="last_name" name="last_name" required>
+                    <label class="form-label" for="email">Email Address</label>
+                    <input type="email" id="email" name="email" class="form-input" required>
                 </div>
                 
                 <div class="form-group">
-                    <label for="email">Email Address *</label>
-                    <input type="email" id="email" name="email" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="password">Password *</label>
-                    <input type="password" id="password" name="password" required>
-                </div>
-                
-                <div class="form-group full-width">
-                    <label for="business_address">Business Address *</label>
-                    <input type="text" id="business_address" name="business_address" placeholder="123 Business St, City, State, ZIP" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="license_number">License Number</label>
-                    <input type="text" id="license_number" name="license_number" placeholder="Professional license number">
-                </div>
-                
-                <div class="form-group">
-                    <label for="profession">Professional Category *</label>
-                    <select id="profession" name="profession" required>
+                    <label class="form-label" for="profession">Professional Category</label>
+                    <select id="profession" name="profession" class="form-select" required>
                         <option value="">Select your profession</option>
                         <option value="Real Estate Agent">Real Estate Agent</option>
                         <option value="Real Estate Broker">Real Estate Broker</option>
@@ -1245,80 +1184,61 @@ def signup():
                     </select>
                 </div>
                 
-                <div class="form-group full-width">
-                    <label for="service_areas">Service Zip Codes *</label>
-                    <input type="text" id="service_areas" name="service_areas" placeholder="95814, 95628, 95630" required>
-                    <small style="color: #666; margin-top: 0.5rem;">Enter zip codes separated by commas</small>
+                <div class="form-group">
+                    <label class="form-label" for="phone">Phone Number</label>
+                    <input type="tel" id="phone" name="phone" class="form-input" required>
                 </div>
-            </div>
-            
-            <div class="verification-section">
-                <h3 class="verification-title">📄 Document Verification</h3>
-                <div class="file-upload">
-                    <input type="file" id="documents" name="documents" multiple accept=".pdf,.jpg,.jpeg,.png" style="display: none;">
-                    <p>📎 Click to upload license and certification documents</p>
-                    <small style="color: #666;">Accepted formats: PDF, JPG, PNG</small>
+                
+                <div class="form-group">
+                    <label class="form-label" for="license">License Number (if applicable)</label>
+                    <input type="text" id="license" name="license" class="form-input">
                 </div>
-            </div>
-            
-            <button type="submit" class="submit-btn">Create Account</button>
-        </form>
+                
+                <div class="form-group">
+                    <label class="form-label" for="experience">Years of Experience</label>
+                    <select id="experience" name="experience" class="form-select" required>
+                        <option value="">Select experience level</option>
+                        <option value="0-2 years">0-2 years</option>
+                        <option value="3-5 years">3-5 years</option>
+                        <option value="6-10 years">6-10 years</option>
+                        <option value="11-15 years">11-15 years</option>
+                        <option value="16+ years">16+ years</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="submit-btn">Register as Professional</button>
+            </form>
+        </div>
     </div>
-    
-    <script>
-        document.querySelector('.file-upload').addEventListener('click', function() {
-            document.getElementById('documents').click();
-        });
-        
-        document.getElementById('documents').addEventListener('change', function(e) {
-            const fileCount = e.target.files.length;
-            const uploadText = document.querySelector('.file-upload p');
-            if (fileCount > 0) {
-                uploadText.textContent = `📎 ${fileCount} file(s) selected`;
-            }
-        });
-    </script>
 </body>
 </html>
     ''')
 
 @app.route('/register', methods=['POST'])
 def register():
-    """Handle professional registration"""
     try:
-        # Get form data
-        first_name = request.form.get('first_name')
-        last_name = request.form.get('last_name')
+        name = request.form.get('name')
         email = request.form.get('email')
-        password = request.form.get('password')
-        business_address = request.form.get('business_address')
-        license_number = request.form.get('license_number')
         profession = request.form.get('profession')
-        service_areas = request.form.get('service_areas')
+        phone = request.form.get('phone')
+        license_num = request.form.get('license')
+        experience = request.form.get('experience')
         
-        # Send registration confirmation email
-        full_name = f"{first_name} {last_name}"
-        email_sent = send_registration_email(email, full_name, profession)
-        
-        # Send admin notification
-        admin_notification = send_contact_notification(
-            name=full_name,
-            email=email,
-            message=f"New professional registration:\nProfession: {profession}\nBusiness Address: {business_address}\nLicense: {license_number}\nService Areas: {service_areas}",
-            subject="New Professional Registration"
-        )
+        # Send registration email
+        email_sent = send_registration_email(email, name, profession)
         
         if email_sent:
-            flash('Registration successful! Please check your email for confirmation.', 'success')
+            flash(f'Registration successful! Welcome to BlueDwarf, {name}. Check your email for confirmation details.')
         else:
-            flash('Registration completed, but email confirmation failed. Please contact support.', 'warning')
+            flash('Registration completed, but there was an issue sending the confirmation email. Please contact support if needed.')
         
-        return redirect(url_for('index'))
+        return redirect(url_for('signup'))
         
     except Exception as e:
-        flash(f'Registration failed: {str(e)}', 'error')
+        flash('Registration failed. Please try again or contact support.')
         return redirect(url_for('signup'))
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
 
