@@ -20,7 +20,7 @@ app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME', 'support@blu
 mail = Mail(app)
 
 # Google Maps API Key - Replace with your actual key
-GOOGLE_MAPS_API_KEY = "YOUR_GOOGLE_MAPS_API_KEY"
+GOOGLE_MAPS_API_KEY = "AlzaSyDe8QxfkBSo2lds9PWK24-aKgqbl9du9B4"
 
 def extract_zip_code(address):
     """Extract zip code from address string"""
