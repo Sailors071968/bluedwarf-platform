@@ -1,6 +1,8 @@
-from flask import Flask, render_template_string, request
+from flask import Flask, render_template_string, request, flash, redirect, url_for, session
+from flask_mail import Mail, Message
 import urllib.parse
 import re
+import os
 
 app = Flask(__name__)
 
@@ -10,9 +12,40 @@ app.config['SECRET_KEY'] = 'your-secret-key-here'
 # Google Maps API Key
 GOOGLE_MAPS_API_KEY = "AIzaSyDe8QxfkBSo2Ids9PWK24-aKgqbI9du9B4"
 
+# Email Configuration
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME', 'your-email@gmail.com')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD', 'your-app-password')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME', 'your-email@gmail.com')
+
+# Initialize Flask-Mail with error handling
+try:
+    mail = Mail(app)
+    email_enabled = True
+except Exception as e:
+    print(f"Email configuration error: {e}")
+    mail = None
+    email_enabled = False
+
 def encode_address_for_maps(address):
     """Encode address for Google Maps API"""
     return urllib.parse.quote_plus(address)
+
+def send_email(subject, recipient, body):
+    """Send email with error handling"""
+    if not email_enabled or not mail:
+        print(f"Email not sent - service unavailable: {subject}")
+        return False
+    
+    try:
+        msg = Message(subject=subject, recipients=[recipient], body=body)
+        mail.send(msg)
+        return True
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+        return False
 
 @app.route('/')
 def home():
@@ -112,6 +145,25 @@ def home():
             font-size: 0.9rem;
             color: #555;
         }
+        
+        .nav-links {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+        }
+        
+        .nav-link {
+            color: #667eea;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        
+        .nav-link:hover {
+            background-color: rgba(102, 126, 234, 0.1);
+        }
     </style>
 </head>
 <body>
@@ -131,6 +183,418 @@ def home():
             <div class="feature">💰 Market Valuation</div>
             <div class="feature">📈 Investment Insights</div>
         </div>
+        
+        <div class="nav-links">
+            <a href="/register" class="nav-link">Professional Registration</a>
+            <a href="/contact" class="nav-link">Contact Us</a>
+        </div>
+    </div>
+</body>
+</html>
+    ''')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        email = request.form.get('email')
+        profession = request.form.get('profession')
+        phone = request.form.get('phone')
+        
+        # Send registration email
+        subject = f"New Professional Registration - {profession}"
+        body = f"""
+New professional registration received:
+
+Name: {name}
+Email: {email}
+Profession: {profession}
+Phone: {phone}
+
+Please follow up with this professional to complete their registration.
+        """
+        
+        email_sent = send_email(subject, app.config['MAIL_DEFAULT_SENDER'], body)
+        
+        if email_sent:
+            flash('Registration submitted successfully! We will contact you soon.', 'success')
+        else:
+            flash('Registration submitted! We will contact you soon.', 'info')
+        
+        return redirect(url_for('register'))
+    
+    return render_template_string('''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Registration - BlueDwarf</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .logo {
+            font-size: 2rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .form-input, .form-select {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .submit-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 1rem;
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        .flash-messages {
+            margin-bottom: 1rem;
+        }
+        
+        .flash-message {
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 0.5rem;
+        }
+        
+        .flash-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .flash-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🏠 BlueDwarf</div>
+            <h1>Professional Registration</h1>
+            <p>Join our network of real estate professionals</p>
+        </div>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        <form method="POST">
+            <div class="form-group">
+                <label class="form-label" for="name">Full Name</label>
+                <input type="text" id="name" name="name" class="form-input" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="email">Email Address</label>
+                <input type="email" id="email" name="email" class="form-input" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="phone">Phone Number</label>
+                <input type="tel" id="phone" name="phone" class="form-input" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="profession">Profession</label>
+                <select id="profession" name="profession" class="form-select" required>
+                    <option value="">Select your profession</option>
+                    <option value="Real Estate Agent">Real Estate Agent</option>
+                    <option value="Mortgage Broker">Mortgage Broker</option>
+                    <option value="Home Inspector">Home Inspector</option>
+                    <option value="Property Attorney">Property Attorney</option>
+                    <option value="Property Inspector">Property Inspector</option>
+                    <option value="Insurance Agent">Insurance Agent</option>
+                    <option value="General Contractor">General Contractor</option>
+                    <option value="Property Appraiser">Property Appraiser</option>
+                    <option value="Structural Engineer">Structural Engineer</option>
+                    <option value="Escrow Officer">Escrow Officer</option>
+                    <option value="Property Manager">Property Manager</option>
+                </select>
+            </div>
+            
+            <button type="submit" class="submit-btn">Submit Registration</button>
+        </form>
+        
+        <a href="/" class="back-link">← Back to Home</a>
+    </div>
+</body>
+</html>
+    ''')
+
+@app.route('/contact', methods=['GET', 'POST'])
+def contact():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        email = request.form.get('email')
+        subject = request.form.get('subject')
+        message = request.form.get('message')
+        
+        # Send contact email
+        email_subject = f"Contact Form: {subject}"
+        email_body = f"""
+New contact form submission:
+
+Name: {name}
+Email: {email}
+Subject: {subject}
+
+Message:
+{message}
+        """
+        
+        email_sent = send_email(email_subject, app.config['MAIL_DEFAULT_SENDER'], email_body)
+        
+        if email_sent:
+            flash('Message sent successfully! We will get back to you soon.', 'success')
+        else:
+            flash('Message received! We will get back to you soon.', 'info')
+        
+        return redirect(url_for('contact'))
+    
+    return render_template_string('''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Us - BlueDwarf</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .logo {
+            font-size: 2rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+            font-family: inherit;
+        }
+        
+        .form-textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .submit-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 1rem;
+            color: #667eea;
+            text-decoration: none;
+        }
+        
+        .flash-messages {
+            margin-bottom: 1rem;
+        }
+        
+        .flash-message {
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 0.5rem;
+        }
+        
+        .flash-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .flash-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🏠 BlueDwarf</div>
+            <h1>Contact Us</h1>
+            <p>Get in touch with our team</p>
+        </div>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        <form method="POST">
+            <div class="form-group">
+                <label class="form-label" for="name">Full Name</label>
+                <input type="text" id="name" name="name" class="form-input" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="email">Email Address</label>
+                <input type="email" id="email" name="email" class="form-input" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="subject">Subject</label>
+                <input type="text" id="subject" name="subject" class="form-input" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="message">Message</label>
+                <textarea id="message" name="message" class="form-textarea" required></textarea>
+            </div>
+            
+            <button type="submit" class="submit-btn">Send Message</button>
+        </form>
+        
+        <a href="/" class="back-link">← Back to Home</a>
     </div>
 </body>
 </html>
@@ -384,6 +848,15 @@ def property_results():
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
         }
         
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 2rem;
+            color: #667eea;
+            text-decoration: none;
+            font-size: 1.1rem;
+        }
+        
         @media (max-width: 768px) {
             .maps-section {
                 grid-template-columns: 1fr;
@@ -504,7 +977,7 @@ def property_results():
                     <div class="professional-description">Licensed real estate professional specializing in residential properties and market analysis</div>
                     <div class="professional-buttons">
                         <button class="btn btn-primary" onclick="searchProfessional('Real Estate Agent', '{{ zip_code }}')">Website</button>
-                        <button class="btn btn-secondary">Contact</button>
+                        <button class="btn btn-secondary" onclick="contactProfessional('Real Estate Agent')">Contact</button>
                     </div>
                 </div>
                 
@@ -513,7 +986,7 @@ def property_results():
                     <div class="professional-description">Expert mortgage advisor providing competitive rates and personalized financing solutions</div>
                     <div class="professional-buttons">
                         <button class="btn btn-primary" onclick="searchProfessional('Mortgage Broker', '{{ zip_code }}')">Website</button>
-                        <button class="btn btn-secondary">Contact</button>
+                        <button class="btn btn-secondary" onclick="contactProfessional('Mortgage Broker')">Contact</button>
                     </div>
                 </div>
                 
@@ -522,7 +995,7 @@ def property_results():
                     <div class="professional-description">Certified home inspector with comprehensive inspection services and detailed reporting</div>
                     <div class="professional-buttons">
                         <button class="btn btn-primary" onclick="searchProfessional('Home Inspector', '{{ zip_code }}')">Website</button>
-                        <button class="btn btn-secondary">Contact</button>
+                        <button class="btn btn-secondary" onclick="contactProfessional('Home Inspector')">Contact</button>
                     </div>
                 </div>
                 
@@ -531,7 +1004,7 @@ def property_results():
                     <div class="professional-description">Experienced real estate attorney handling transactions, contracts, and legal matters</div>
                     <div class="professional-buttons">
                         <button class="btn btn-primary" onclick="searchProfessional('Property Attorney', '{{ zip_code }}')">Website</button>
-                        <button class="btn btn-secondary">Contact</button>
+                        <button class="btn btn-secondary" onclick="contactProfessional('Property Attorney')">Contact</button>
                     </div>
                 </div>
                 
@@ -540,7 +1013,7 @@ def property_results():
                     <div class="professional-description">Certified home inspector with comprehensive inspection services</div>
                     <div class="professional-buttons">
                         <button class="btn btn-primary" onclick="searchProfessional('Property Inspector', '{{ zip_code }}')">Website</button>
-                        <button class="btn btn-secondary">Contact</button>
+                        <button class="btn btn-secondary" onclick="contactProfessional('Property Inspector')">Contact</button>
                     </div>
                 </div>
                 
@@ -549,7 +1022,7 @@ def property_results():
                     <div class="professional-description">Home and auto insurance specialist with competitive coverage options</div>
                     <div class="professional-buttons">
                         <button class="btn btn-primary" onclick="searchProfessional('Insurance Agent', '{{ zip_code }}')">Website</button>
-                        <button class="btn btn-secondary">Contact</button>
+                        <button class="btn btn-secondary" onclick="contactProfessional('Insurance Agent')">Contact</button>
                     </div>
                 </div>
                 
@@ -558,7 +1031,7 @@ def property_results():
                     <div class="professional-description">Licensed contractor for home renovations and construction projects</div>
                     <div class="professional-buttons">
                         <button class="btn btn-primary" onclick="searchProfessional('General Contractor', '{{ zip_code }}')">Website</button>
-                        <button class="btn btn-secondary">Contact</button>
+                        <button class="btn btn-secondary" onclick="contactProfessional('General Contractor')">Contact</button>
                     </div>
                 </div>
                 
@@ -567,7 +1040,7 @@ def property_results():
                     <div class="professional-description">Certified appraiser providing accurate property valuations</div>
                     <div class="professional-buttons">
                         <button class="btn btn-primary" onclick="searchProfessional('Property Appraiser', '{{ zip_code }}')">Website</button>
-                        <button class="btn btn-secondary">Contact</button>
+                        <button class="btn btn-secondary" onclick="contactProfessional('Property Appraiser')">Contact</button>
                     </div>
                 </div>
                 
@@ -576,7 +1049,7 @@ def property_results():
                     <div class="professional-description">Professional engineer specializing in structural analysis and design</div>
                     <div class="professional-buttons">
                         <button class="btn btn-primary" onclick="searchProfessional('Structural Engineer', '{{ zip_code }}')">Website</button>
-                        <button class="btn btn-secondary">Contact</button>
+                        <button class="btn btn-secondary" onclick="contactProfessional('Structural Engineer')">Contact</button>
                     </div>
                 </div>
                 
@@ -585,7 +1058,7 @@ def property_results():
                     <div class="professional-description">Experienced escrow professional ensuring smooth real estate transactions</div>
                     <div class="professional-buttons">
                         <button class="btn btn-primary" onclick="searchProfessional('Escrow Officer', '{{ zip_code }}')">Website</button>
-                        <button class="btn btn-secondary">Contact</button>
+                        <button class="btn btn-secondary" onclick="contactProfessional('Escrow Officer')">Contact</button>
                     </div>
                 </div>
                 
@@ -594,11 +1067,13 @@ def property_results():
                     <div class="professional-description">Professional property management services for residential and commercial properties</div>
                     <div class="professional-buttons">
                         <button class="btn btn-primary" onclick="searchProfessional('Property Manager', '{{ zip_code }}')">Website</button>
-                        <button class="btn btn-secondary">Contact</button>
+                        <button class="btn btn-secondary" onclick="contactProfessional('Property Manager')">Contact</button>
                     </div>
                 </div>
             </div>
         </div>
+        
+        <a href="/" class="back-link">← Back to Home</a>
     </div>
     
     <script>
@@ -617,6 +1092,12 @@ def property_results():
             
             console.log('Opening URL:', googleUrl);
             window.open(googleUrl, '_blank');
+        }
+        
+        function contactProfessional(professionalType) {
+            // Store the professional type in session storage for the contact form
+            sessionStorage.setItem('contactProfessional', professionalType);
+            window.location.href = '/contact';
         }
     </script>
 </body>
