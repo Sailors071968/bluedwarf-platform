@@ -10,9 +10,7 @@ GOOGLE_MAPS_API_KEY = "AIzaSyDe8QxfkBSo2Ids9PWK24-aKgqbI9du9B4"
 
 def encode_address_for_maps(address):
     """Encode address for Google Maps Embed API"""
-    # Clean address and use proper encoding for Google Maps
     cleaned = ' '.join(address.split())
-    # Replace spaces with + and commas with %2C for Google Maps API
     return cleaned.replace(' ', '+').replace(',', '%2C')
 
 @app.route('/')
@@ -23,7 +21,7 @@ def home():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BlueDwarf - Modern SaaS Platform for Property Valuation</title>
+    <title>BlueDwarf - Modern SaaS Platform for Property Valuation - Manus</title>
     <style>
         * {
             margin: 0;
@@ -190,11 +188,11 @@ def home():
     <div class="container">
         <div class="logo">🏠</div>
         <h1>BlueDwarf</h1>
-        <p class="subtitle">Modern SaaS Platform for Property Valuation</p>
+        <p class="subtitle">Modern SaaS Platform for Property Valuation - Manus</p>
         
         <div class="nav-links">
-            <a href="/register" class="nav-link">📧 Professional Registration</a>
-            <a href="/contact" class="nav-link contact">💬 Contact Us</a>
+            <a href="/register" class="nav-link">Professional Registration</a>
+            <a href="/contact" class="nav-link contact">Contact Us</a>
         </div>
         
         <form action="/property-results" method="POST" class="search-container">
@@ -206,22 +204,22 @@ def home():
             <div class="feature">
                 <div class="feature-icon">📊</div>
                 <h3>Property Analysis</h3>
-                <p>Comprehensive market data</p>
+                <p>Comprehensive market data and insights</p>
             </div>
             <div class="feature">
                 <div class="feature-icon">🏘️</div>
                 <h3>Neighborhood Data</h3>
-                <p>Local insights & trends</p>
+                <p>Local market trends and demographics</p>
             </div>
             <div class="feature">
                 <div class="feature-icon">💰</div>
                 <h3>Market Valuation</h3>
-                <p>Accurate pricing estimates</p>
+                <p>Accurate property value estimates</p>
             </div>
             <div class="feature">
                 <div class="feature-icon">📈</div>
                 <h3>Investment Insights</h3>
-                <p>ROI & growth potential</p>
+                <p>ROI analysis and growth potential</p>
             </div>
         </div>
     </div>
@@ -238,8 +236,8 @@ def register():
         phone = request.form.get('phone')
         company = request.form.get('company', '')
         
-        # Store registration info (in production, save to database)
-        flash('Registration received! We will contact you within 24 hours to complete your professional profile setup.', 'success')
+        # Store registration info (in production, save to database and send email)
+        flash('Thank you for your registration! We will review your application and contact you within 24 hours to complete your professional profile setup.', 'success')
         return redirect(url_for('register'))
     
     return render_template_string('''
@@ -353,17 +351,11 @@ def register():
             color: #155724;
             border: 1px solid #c3e6cb;
         }
-        
-        .flash-info {
-            background: #cce7ff;
-            color: #004085;
-            border: 1px solid #b3d9ff;
-        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>📧 Professional Registration</h1>
+        <h1>Professional Registration</h1>
         
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -392,7 +384,7 @@ def register():
                     <option value="">Select your profession</option>
                     <option value="Real Estate Agent">Real Estate Agent</option>
                     <option value="Mortgage Lender">Mortgage Lender</option>
-                    <option value="Home Inspector">Home Inspector</option>
+                    <option value="Property Inspector">Property Inspector</option>
                     <option value="Insurance Agent">Insurance Agent</option>
                     <option value="General Contractor">General Contractor</option>
                     <option value="Property Appraiser">Property Appraiser</option>
@@ -431,8 +423,8 @@ def contact():
         subject = request.form.get('subject')
         message = request.form.get('message')
         
-        # Store contact info (in production, save to database)
-        flash('Message received! We will respond to your inquiry within 24 hours.', 'success')
+        # Store contact info (in production, save to database and send email)
+        flash('Thank you for contacting us! We have received your message and will respond within 24 hours.', 'success')
         return redirect(url_for('contact'))
     
     return render_template_string('''
@@ -552,17 +544,11 @@ def contact():
             color: #155724;
             border: 1px solid #c3e6cb;
         }
-        
-        .flash-info {
-            background: #cce7ff;
-            color: #004085;
-            border: 1px solid #b3d9ff;
-        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>💬 Contact Us</h1>
+        <h1>Contact Us</h1>
         
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -592,7 +578,7 @@ def contact():
             
             <div class="form-group">
                 <label for="message">Message *</label>
-                <textarea id="message" name="message" placeholder="Tell us how we can help you..." required></textarea>
+                <textarea id="message" name="message" placeholder="How can we help you?" required></textarea>
             </div>
             
             <button type="submit" class="submit-btn">Send Message</button>
@@ -607,8 +593,6 @@ def contact():
 @app.route('/property-results', methods=['POST'])
 def property_results():
     address = request.form.get('address', '')
-    
-    # Encode address for Google Maps with improved method
     encoded_address = encode_address_for_maps(address)
     
     # Extract zip code for professional searches
@@ -1007,7 +991,7 @@ def property_results():
         <div class="professionals-grid">
             <div class="professional-card">
                 <div class="professional-title">Real Estate Agent</div>
-                <div class="professional-description">Licensed real estate professional with local market expertise and proven track record</div>
+                <div class="professional-description">Licensed real estate professional with extensive local market knowledge and proven track record in residential sales</div>
                 <div class="professional-buttons">
                     <button class="website-btn" onclick="searchProfessional('Real Estate Agent', '{{ zip_code }}')">Website</button>
                     <a href="/contact" class="contact-btn">Contact</a>
@@ -1016,7 +1000,7 @@ def property_results():
             
             <div class="professional-card">
                 <div class="professional-title">Mortgage Lender</div>
-                <div class="professional-description">Experienced mortgage specialist offering competitive rates and personalized loan solutions</div>
+                <div class="professional-description">Experienced mortgage specialist offering competitive rates and personalized loan solutions for home buyers</div>
                 <div class="professional-buttons">
                     <button class="website-btn" onclick="searchProfessional('Mortgage Lender', '{{ zip_code }}')">Website</button>
                     <a href="/contact" class="contact-btn">Contact</a>
@@ -1024,17 +1008,17 @@ def property_results():
             </div>
             
             <div class="professional-card">
-                <div class="professional-title">Home Inspector</div>
-                <div class="professional-description">Certified home inspector with comprehensive inspection services and detailed reporting</div>
+                <div class="professional-title">Property Inspector</div>
+                <div class="professional-description">Certified home inspector with comprehensive inspection services and detailed reporting for property condition assessment</div>
                 <div class="professional-buttons">
-                    <button class="website-btn" onclick="searchProfessional('Home Inspector', '{{ zip_code }}')">Website</button>
+                    <button class="website-btn" onclick="searchProfessional('Property Inspector', '{{ zip_code }}')">Website</button>
                     <a href="/contact" class="contact-btn">Contact</a>
                 </div>
             </div>
             
             <div class="professional-card">
                 <div class="professional-title">Insurance Agent</div>
-                <div class="professional-description">Home and auto insurance specialist with competitive coverage options and excellent service</div>
+                <div class="professional-description">Home and auto insurance specialist with competitive coverage options and excellent customer service record</div>
                 <div class="professional-buttons">
                     <button class="website-btn" onclick="searchProfessional('Insurance Agent', '{{ zip_code }}')">Website</button>
                     <a href="/contact" class="contact-btn">Contact</a>
@@ -1043,7 +1027,7 @@ def property_results():
             
             <div class="professional-card">
                 <div class="professional-title">General Contractor</div>
-                <div class="professional-description">Licensed contractor for home renovations and construction projects with quality craftsmanship</div>
+                <div class="professional-description">Licensed contractor for home renovations and construction projects with quality craftsmanship and reliable service</div>
                 <div class="professional-buttons">
                     <button class="website-btn" onclick="searchProfessional('General Contractor', '{{ zip_code }}')">Website</button>
                     <a href="/contact" class="contact-btn">Contact</a>
@@ -1052,7 +1036,7 @@ def property_results():
             
             <div class="professional-card">
                 <div class="professional-title">Property Appraiser</div>
-                <div class="professional-description">Certified appraiser providing accurate property valuations for various real estate needs</div>
+                <div class="professional-description">Certified appraiser providing accurate property valuations for mortgage, refinance, and investment purposes</div>
                 <div class="professional-buttons">
                     <button class="website-btn" onclick="searchProfessional('Property Appraiser', '{{ zip_code }}')">Website</button>
                     <a href="/contact" class="contact-btn">Contact</a>
@@ -1061,7 +1045,7 @@ def property_results():
             
             <div class="professional-card">
                 <div class="professional-title">Structural Engineer</div>
-                <div class="professional-description">Professional engineer specializing in structural analysis and design for residential properties</div>
+                <div class="professional-description">Professional engineer specializing in structural analysis and design for residential and commercial properties</div>
                 <div class="professional-buttons">
                     <button class="website-btn" onclick="searchProfessional('Structural Engineer', '{{ zip_code }}')">Website</button>
                     <a href="/contact" class="contact-btn">Contact</a>
@@ -1070,7 +1054,7 @@ def property_results():
             
             <div class="professional-card">
                 <div class="professional-title">Escrow Officer</div>
-                <div class="professional-description">Experienced escrow professional ensuring smooth real estate transactions and closings</div>
+                <div class="professional-description">Experienced escrow professional ensuring smooth real estate transactions and secure handling of funds and documents</div>
                 <div class="professional-buttons">
                     <button class="website-btn" onclick="searchProfessional('Escrow Officer', '{{ zip_code }}')">Website</button>
                     <a href="/contact" class="contact-btn">Contact</a>
@@ -1079,7 +1063,7 @@ def property_results():
             
             <div class="professional-card">
                 <div class="professional-title">Property Manager</div>
-                <div class="professional-description">Professional property management services for residential and commercial properties</div>
+                <div class="professional-description">Professional property management services for residential and commercial properties with tenant relations expertise</div>
                 <div class="professional-buttons">
                     <button class="website-btn" onclick="searchProfessional('Property Manager', '{{ zip_code }}')">Website</button>
                     <a href="/contact" class="contact-btn">Contact</a>
@@ -1088,7 +1072,7 @@ def property_results():
             
             <div class="professional-card">
                 <div class="professional-title">Real Estate Attorney</div>
-                <div class="professional-description">Experienced real estate attorney providing legal guidance for property transactions</div>
+                <div class="professional-description">Experienced real estate attorney providing legal guidance for property transactions and contract negotiations</div>
                 <div class="professional-buttons">
                     <button class="website-btn" onclick="searchProfessional('Real Estate Attorney', '{{ zip_code }}')">Website</button>
                     <a href="/contact" class="contact-btn">Contact</a>
@@ -1097,7 +1081,7 @@ def property_results():
             
             <div class="professional-card">
                 <div class="professional-title">Tax Consultant</div>
-                <div class="professional-description">Tax professional specializing in real estate investments and property tax optimization</div>
+                <div class="professional-description">Tax professional specializing in real estate investments and property tax optimization strategies for investors</div>
                 <div class="professional-buttons">
                     <button class="website-btn" onclick="searchProfessional('Tax Consultant', '{{ zip_code }}')">Website</button>
                     <a href="/contact" class="contact-btn">Contact</a>
