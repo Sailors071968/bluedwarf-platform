@@ -1,3 +1,11 @@
+# Create Aptfile
+echo "tesseract-ocr
+tesseract-ocr-eng
+libopencv-dev
+python3-opencv" > Aptfile
+
+# Update requirements.txt
+cat > requirements.txt << 'EOF'
 Flask==2.3.3
 Flask-CORS==4.0.0
 gunicorn==21.2.0
@@ -9,3 +17,9 @@ click==8.1.7
 blinker==1.6.3
 requests==2.31.0
 cryptography==41.0.7
+EOF
+
+# Commit and deploy
+git add Aptfile requirements.txt
+git commit -m "Add missing Aptfile and update requirements for OCR support"
+git push heroku main
