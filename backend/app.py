@@ -1,18 +1,63 @@
-from flask import Flask, render_template_string, request
+from flask import Flask, render_template_string, request, flash, redirect, url_for
 import urllib.parse
 import re
+import os
+
+# Flask-Mail imports with error handling
+try:
+    from flask_mail import Mail, Message
+    FLASK_MAIL_AVAILABLE = True
+except ImportError:
+    FLASK_MAIL_AVAILABLE = False
+    print("Flask-Mail not available - email functionality will be disabled")
 
 app = Flask(__name__)
 
 # Configuration
-app.secret_key = 'your-secret-key-here'
+app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-here')
 
 # Google Maps API Key
 GOOGLE_MAPS_API_KEY = "AIzaSyDe8QxfkBSo2Ids9PWK24-aKgqbI9du9B4"
 
+# Email configuration with error handling
+if FLASK_MAIL_AVAILABLE:
+    try:
+        app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+        app.config['MAIL_PORT'] = 587
+        app.config['MAIL_USE_TLS'] = True
+        app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME', '')
+        app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD', '')
+        app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME', '')
+        
+        mail = Mail(app)
+        EMAIL_CONFIGURED = bool(app.config['MAIL_USERNAME'] and app.config['MAIL_PASSWORD'])
+    except Exception as e:
+        EMAIL_CONFIGURED = False
+        print(f"Email configuration error: {e}")
+else:
+    EMAIL_CONFIGURED = False
+
 def encode_address_for_maps(address):
-    """Encode address for Google Maps API"""
-    return urllib.parse.quote_plus(address)
+    """Properly encode address for Google Maps API"""
+    # Clean the address first
+    cleaned_address = address.strip()
+    # URL encode for Google Maps
+    return urllib.parse.quote_plus(cleaned_address)
+
+def send_email(subject, body, recipient=None):
+    """Send email with error handling"""
+    if not EMAIL_CONFIGURED or not FLASK_MAIL_AVAILABLE:
+        print(f"Email not sent - configuration not available. Subject: {subject}")
+        return False
+    
+    try:
+        recipient = recipient or app.config['MAIL_USERNAME']
+        msg = Message(subject=subject, recipients=[recipient], body=body)
+        mail.send(msg)
+        return True
+    except Exception as e:
+        print(f"Email sending failed: {e}")
+        return False
 
 @app.route('/')
 def home():
@@ -106,6 +151,29 @@ def home():
             box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
         }
         
+        .nav-links {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .nav-link {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-link:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }
+        
         .features {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -153,6 +221,11 @@ def home():
             .features {
                 grid-template-columns: repeat(2, 1fr);
             }
+            
+            .nav-links {
+                flex-direction: column;
+                align-items: center;
+            }
         }
     </style>
 </head>
@@ -161,6 +234,11 @@ def home():
         <div class="logo">🏠</div>
         <h1>BlueDwarf</h1>
         <p class="subtitle">Modern SaaS Platform for Property Valuation</p>
+        
+        <div class="nav-links">
+            <a href="/register" class="nav-link">📧 Professional Registration</a>
+            <a href="/contact" class="nav-link">💬 Contact Us</a>
+        </div>
         
         <form action="/property-results" method="POST" class="search-container">
             <input type="text" name="address" class="search-input" 
@@ -195,11 +273,419 @@ def home():
 </html>
     ''')
 
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        email = request.form.get('email')
+        profession = request.form.get('profession')
+        phone = request.form.get('phone')
+        company = request.form.get('company')
+        
+        # Send registration email
+        subject = f"New Professional Registration - {name}"
+        body = f"""
+New professional registration received:
+
+Name: {name}
+Email: {email}
+Profession: {profession}
+Phone: {phone}
+Company: {company}
+
+Please follow up with this professional to complete their onboarding.
+        """
+        
+        email_sent = send_email(subject, body)
+        
+        if email_sent:
+            flash('Registration submitted successfully! We will contact you soon.', 'success')
+        else:
+            flash('Registration received! We will contact you soon.', 'info')
+        
+        return redirect(url_for('register'))
+    
+    return render_template_string('''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Registration - BlueDwarf</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2rem;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .submit-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            width: 100%;
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+        
+        .flash-message {
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .flash-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .flash-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📧 Professional Registration</h1>
+        
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+        
+        <form method="POST">
+            <div class="form-group">
+                <label for="name">Full Name *</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="email">Email Address *</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="profession">Profession *</label>
+                <select id="profession" name="profession" required>
+                    <option value="">Select your profession</option>
+                    <option value="Real Estate Agent">Real Estate Agent</option>
+                    <option value="Mortgage Lender">Mortgage Lender</option>
+                    <option value="Property Inspector">Property Inspector</option>
+                    <option value="Insurance Agent">Insurance Agent</option>
+                    <option value="General Contractor">General Contractor</option>
+                    <option value="Property Appraiser">Property Appraiser</option>
+                    <option value="Structural Engineer">Structural Engineer</option>
+                    <option value="Escrow Officer">Escrow Officer</option>
+                    <option value="Property Manager">Property Manager</option>
+                    <option value="Real Estate Attorney">Real Estate Attorney</option>
+                    <option value="Tax Consultant">Tax Consultant</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="phone">Phone Number *</label>
+                <input type="tel" id="phone" name="phone" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="company">Company/Organization</label>
+                <input type="text" id="company" name="company">
+            </div>
+            
+            <button type="submit" class="submit-btn">Submit Registration</button>
+        </form>
+        
+        <a href="/" class="back-link">← Back to Home</a>
+    </div>
+</body>
+</html>
+    ''')
+
+@app.route('/contact', methods=['GET', 'POST'])
+def contact():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        email = request.form.get('email')
+        subject = request.form.get('subject')
+        message = request.form.get('message')
+        
+        # Send contact email
+        email_subject = f"Contact Form: {subject}"
+        email_body = f"""
+New contact form submission:
+
+Name: {name}
+Email: {email}
+Subject: {subject}
+
+Message:
+{message}
+        """
+        
+        email_sent = send_email(email_subject, email_body)
+        
+        if email_sent:
+            flash('Message sent successfully! We will get back to you soon.', 'success')
+        else:
+            flash('Message received! We will get back to you soon.', 'info')
+        
+        return redirect(url_for('contact'))
+    
+    return render_template_string('''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Us - BlueDwarf</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2rem;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        input, textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+        
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+        
+        .submit-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            width: 100%;
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+        
+        .flash-message {
+            padding: 10px 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .flash-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .flash-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💬 Contact Us</h1>
+        
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+        
+        <form method="POST">
+            <div class="form-group">
+                <label for="name">Your Name *</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="email">Your Email *</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="subject">Subject *</label>
+                <input type="text" id="subject" name="subject" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="message">Message *</label>
+                <textarea id="message" name="message" required placeholder="Tell us how we can help you..."></textarea>
+            </div>
+            
+            <button type="submit" class="submit-btn">Send Message</button>
+        </form>
+        
+        <a href="/" class="back-link">← Back to Home</a>
+    </div>
+</body>
+</html>
+    ''')
+
 @app.route('/property-results', methods=['POST'])
 def property_results():
     address = request.form.get('address', '')
     
-    # Encode address for Google Maps
+    # Properly encode address for Google Maps
     encoded_address = encode_address_for_maps(address)
     
     # Extract zip code for professional searches
@@ -406,9 +892,13 @@ def property_results():
             line-height: 1.4;
         }
         
-        .website-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        
+        .website-btn, .contact-btn {
             border: none;
             padding: 8px 16px;
             border-radius: 20px;
@@ -416,9 +906,21 @@ def property_results():
             font-size: 0.9rem;
             font-weight: 500;
             transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
         }
         
-        .website-btn:hover {
+        .website-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .contact-btn {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+        }
+        
+        .website-btn:hover, .contact-btn:hover {
             transform: translateY(-1px);
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
         }
@@ -456,6 +958,11 @@ def property_results():
                 flex-direction: column;
                 text-align: center;
                 gap: 10px;
+            }
+            
+            .button-group {
+                flex-direction: column;
+                align-items: center;
             }
         }
     </style>
@@ -547,67 +1054,100 @@ def property_results():
             <div class="professional-card">
                 <div class="professional-title">Real Estate Agent</div>
                 <div class="professional-desc">Licensed real estate professional with local market expertise and proven track record</div>
-                <button class="website-btn" onclick="searchProfessional('Real Estate Agent', '{{ zip_code }}')">Website</button>
+                <div class="button-group">
+                    <button class="website-btn" onclick="searchProfessional('Real Estate Agent', '{{ zip_code }}')">Website</button>
+                    <a href="/contact" class="contact-btn">Contact</a>
+                </div>
             </div>
             
             <div class="professional-card">
                 <div class="professional-title">Mortgage Lender</div>
                 <div class="professional-desc">Experienced mortgage specialist offering competitive rates and personalized loan solutions</div>
-                <button class="website-btn" onclick="searchProfessional('Mortgage Lender', '{{ zip_code }}')">Website</button>
+                <div class="button-group">
+                    <button class="website-btn" onclick="searchProfessional('Mortgage Lender', '{{ zip_code }}')">Website</button>
+                    <a href="/contact" class="contact-btn">Contact</a>
+                </div>
             </div>
             
             <div class="professional-card">
                 <div class="professional-title">Home Inspector</div>
                 <div class="professional-desc">Certified home inspector with comprehensive inspection services and detailed reporting</div>
-                <button class="website-btn" onclick="searchProfessional('Property Inspector', '{{ zip_code }}')">Website</button>
+                <div class="button-group">
+                    <button class="website-btn" onclick="searchProfessional('Property Inspector', '{{ zip_code }}')">Website</button>
+                    <a href="/contact" class="contact-btn">Contact</a>
+                </div>
             </div>
             
             <div class="professional-card">
                 <div class="professional-title">Insurance Agent</div>
                 <div class="professional-desc">Home and auto insurance specialist with competitive coverage options and excellent service</div>
-                <button class="website-btn" onclick="searchProfessional('Insurance Agent', '{{ zip_code }}')">Website</button>
+                <div class="button-group">
+                    <button class="website-btn" onclick="searchProfessional('Insurance Agent', '{{ zip_code }}')">Website</button>
+                    <a href="/contact" class="contact-btn">Contact</a>
+                </div>
             </div>
             
             <div class="professional-card">
                 <div class="professional-title">General Contractor</div>
                 <div class="professional-desc">Licensed contractor for home renovations and construction projects with quality craftsmanship</div>
-                <button class="website-btn" onclick="searchProfessional('General Contractor', '{{ zip_code }}')">Website</button>
+                <div class="button-group">
+                    <button class="website-btn" onclick="searchProfessional('General Contractor', '{{ zip_code }}')">Website</button>
+                    <a href="/contact" class="contact-btn">Contact</a>
+                </div>
             </div>
             
             <div class="professional-card">
                 <div class="professional-title">Property Appraiser</div>
                 <div class="professional-desc">Certified appraiser providing accurate property valuations for various real estate needs</div>
-                <button class="website-btn" onclick="searchProfessional('Property Appraiser', '{{ zip_code }}')">Website</button>
+                <div class="button-group">
+                    <button class="website-btn" onclick="searchProfessional('Property Appraiser', '{{ zip_code }}')">Website</button>
+                    <a href="/contact" class="contact-btn">Contact</a>
+                </div>
             </div>
             
             <div class="professional-card">
                 <div class="professional-title">Structural Engineer</div>
                 <div class="professional-desc">Professional engineer specializing in structural analysis and design for residential properties</div>
-                <button class="website-btn" onclick="searchProfessional('Structural Engineer', '{{ zip_code }}')">Website</button>
+                <div class="button-group">
+                    <button class="website-btn" onclick="searchProfessional('Structural Engineer', '{{ zip_code }}')">Website</button>
+                    <a href="/contact" class="contact-btn">Contact</a>
+                </div>
             </div>
             
             <div class="professional-card">
                 <div class="professional-title">Escrow Officer</div>
                 <div class="professional-desc">Experienced escrow professional ensuring smooth real estate transactions and closings</div>
-                <button class="website-btn" onclick="searchProfessional('Escrow Officer', '{{ zip_code }}')">Website</button>
+                <div class="button-group">
+                    <button class="website-btn" onclick="searchProfessional('Escrow Officer', '{{ zip_code }}')">Website</button>
+                    <a href="/contact" class="contact-btn">Contact</a>
+                </div>
             </div>
             
             <div class="professional-card">
                 <div class="professional-title">Property Manager</div>
                 <div class="professional-desc">Professional property management services for residential and commercial properties</div>
-                <button class="website-btn" onclick="searchProfessional('Property Manager', '{{ zip_code }}')">Website</button>
+                <div class="button-group">
+                    <button class="website-btn" onclick="searchProfessional('Property Manager', '{{ zip_code }}')">Website</button>
+                    <a href="/contact" class="contact-btn">Contact</a>
+                </div>
             </div>
             
             <div class="professional-card">
                 <div class="professional-title">Real Estate Attorney</div>
                 <div class="professional-desc">Experienced real estate attorney providing legal guidance for property transactions</div>
-                <button class="website-btn" onclick="searchProfessional('Real Estate Attorney', '{{ zip_code }}')">Website</button>
+                <div class="button-group">
+                    <button class="website-btn" onclick="searchProfessional('Real Estate Attorney', '{{ zip_code }}')">Website</button>
+                    <a href="/contact" class="contact-btn">Contact</a>
+                </div>
             </div>
             
             <div class="professional-card">
                 <div class="professional-title">Tax Consultant</div>
                 <div class="professional-desc">Tax professional specializing in real estate investments and property tax optimization</div>
-                <button class="website-btn" onclick="searchProfessional('Tax Consultant', '{{ zip_code }}')">Website</button>
+                <div class="button-group">
+                    <button class="website-btn" onclick="searchProfessional('Tax Consultant', '{{ zip_code }}')">Website</button>
+                    <a href="/contact" class="contact-btn">Contact</a>
+                </div>
             </div>
         </div>
     </div>
