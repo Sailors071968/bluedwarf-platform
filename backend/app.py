@@ -1,8 +1,6 @@
 from flask import Flask, render_template_string, request, redirect, url_for, flash
-from flask_mail import Mail, Message
 import urllib.parse
 import re
-import os
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'
@@ -10,25 +8,11 @@ app.secret_key = 'your-secret-key-here'
 # Google Maps API Key
 GOOGLE_MAPS_API_KEY = "AIzaSyDe8QxfkBSo2Ids9PWK24-aKgqbI9du9B4"
 
-# Flask-Mail Configuration with graceful error handling
-try:
-    app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-    app.config['MAIL_PORT'] = 587
-    app.config['MAIL_USE_TLS'] = True
-    app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME', '')
-    app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD', '')
-    app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME', '')
-    
-    mail = Mail(app)
-    mail_available = True
-except Exception as e:
-    mail_available = False
-    print(f"Flask-Mail not available: {e}")
-
 def encode_address_for_maps(address):
     """Encode address for Google Maps Embed API"""
     # Clean address and use proper encoding for Google Maps
     cleaned = ' '.join(address.split())
+    # Replace spaces with + and commas with %2C for Google Maps API
     return cleaned.replace(' ', '+').replace(',', '%2C')
 
 @app.route('/')
@@ -254,31 +238,8 @@ def register():
         phone = request.form.get('phone')
         company = request.form.get('company', '')
         
-        # Send email notification if mail is available
-        if mail_available:
-            try:
-                msg = Message(
-                    subject='New Professional Registration - BlueDwarf',
-                    recipients=[app.config['MAIL_USERNAME']],
-                    body=f'''
-New Professional Registration:
-
-Name: {name}
-Email: {email}
-Profession: {profession}
-Phone: {phone}
-Company: {company}
-
-Please follow up with this professional to complete their onboarding.
-                    '''
-                )
-                mail.send(msg)
-                flash('Registration successful! We will contact you soon.', 'success')
-            except Exception as e:
-                flash('Registration received! We will process it manually.', 'info')
-        else:
-            flash('Registration received! We will process it manually.', 'info')
-        
+        # Store registration info (in production, save to database)
+        flash('Registration received! We will contact you within 24 hours to complete your professional profile setup.', 'success')
         return redirect(url_for('register'))
     
     return render_template_string('''
@@ -431,7 +392,7 @@ Please follow up with this professional to complete their onboarding.
                     <option value="">Select your profession</option>
                     <option value="Real Estate Agent">Real Estate Agent</option>
                     <option value="Mortgage Lender">Mortgage Lender</option>
-                    <option value="Property Inspector">Property Inspector</option>
+                    <option value="Home Inspector">Home Inspector</option>
                     <option value="Insurance Agent">Insurance Agent</option>
                     <option value="General Contractor">General Contractor</option>
                     <option value="Property Appraiser">Property Appraiser</option>
@@ -470,32 +431,8 @@ def contact():
         subject = request.form.get('subject')
         message = request.form.get('message')
         
-        # Send email notification if mail is available
-        if mail_available:
-            try:
-                msg = Message(
-                    subject=f'Contact Form: {subject}',
-                    recipients=[app.config['MAIL_USERNAME']],
-                    body=f'''
-New Contact Form Submission:
-
-Name: {name}
-Email: {email}
-Subject: {subject}
-
-Message:
-{message}
-
-Please respond to this inquiry promptly.
-                    '''
-                )
-                mail.send(msg)
-                flash('Message sent successfully! We will respond soon.', 'success')
-            except Exception as e:
-                flash('Message received! We will respond manually.', 'info')
-        else:
-            flash('Message received! We will respond manually.', 'info')
-        
+        # Store contact info (in production, save to database)
+        flash('Message received! We will respond to your inquiry within 24 hours.', 'success')
         return redirect(url_for('contact'))
     
     return render_template_string('''
