@@ -10,6 +10,7 @@ import uuid
 import json
 import os
 import random
+import math
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -52,6 +53,22 @@ def get_coordinates(address):
     # Default coordinates for Sacramento, CA if geocoding fails
     return 38.5816, -121.4944
 
+def calculate_distance(lat1, lng1, lat2, lng2):
+    """Calculate distance between two points in miles"""
+    R = 3959  # Earth's radius in miles
+    
+    lat1_rad = math.radians(lat1)
+    lat2_rad = math.radians(lat2)
+    delta_lat = math.radians(lat2 - lat1)
+    delta_lng = math.radians(lng2 - lng1)
+    
+    a = (math.sin(delta_lat / 2) ** 2 + 
+         math.cos(lat1_rad) * math.cos(lat2_rad) * 
+         math.sin(delta_lng / 2) ** 2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    
+    return R * c
+
 def generate_comparable_properties(address, lat, lng):
     """Generate mock comparable properties around the given location"""
     properties = []
@@ -70,8 +87,20 @@ def generate_comparable_properties(address, lat, lng):
         lat_offset = random.uniform(-0.02, 0.02)  # ~1.4 miles
         lng_offset = random.uniform(-0.02, 0.02)
         
+        prop_lat = lat + lat_offset
+        prop_lng = lng + lng_offset
+        
         street_num = random.randint(1000, 9999)
         street_name = random.choice(streets)
+        
+        # Calculate distance from main property
+        distance = calculate_distance(lat, lng, prop_lat, prop_lng)
+        
+        # Generate realistic valuation based on size and year
+        base_value = 400000
+        size_factor = prop_type['sqft'] / 1500  # Normalize to 1500 sq ft
+        age_factor = (2024 - prop_type['year']) / 30  # Age impact
+        value = int(base_value * size_factor * (1 - age_factor * 0.2) + random.randint(-50000, 50000))
         
         properties.append({
             'id': i + 1,
@@ -83,9 +112,10 @@ def generate_comparable_properties(address, lat, lng):
             'sqft': prop_type['sqft'],
             'year_built': prop_type['year'],
             'days_on_market': random.randint(5, 180),
-            'lat': lat + lat_offset,
-            'lng': lng + lng_offset,
-            'estimated_value': random.randint(450000, 650000)
+            'lat': prop_lat,
+            'lng': prop_lng,
+            'estimated_value': value,
+            'distance': round(distance, 1)
         })
     
     return properties
@@ -219,6 +249,7 @@ def home():
             border-radius: 20px;
             transition: all 0.3s ease;
             font-weight: 500;
+            cursor: pointer;
         }
         
         .nav-link:hover {
@@ -374,6 +405,108 @@ def home():
             font-size: 0.9rem;
         }
         
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 2rem;
+            color: #666;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+        
+        .modal-close:hover {
+            color: #333;
+        }
+        
+        .modal-title {
+            color: #333;
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        
+        .modal-text {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        
+        .contact-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .form-input, .form-textarea {
+            padding: 12px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .submit-btn {
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .submit-btn:hover {
+            background: #5a67d8;
+        }
+        
         /* Responsive Design */
         @media (max-width: 768px) {
             .header {
@@ -403,6 +536,11 @@ def home():
             .button-group {
                 flex-direction: column;
             }
+            
+            .modal-content {
+                padding: 20px;
+                width: 95%;
+            }
         }
     </style>
 </head>
@@ -414,8 +552,8 @@ def home():
         </a>
         
         <nav class="nav-center">
-            <a href="/about" class="nav-link">About</a>
-            <a href="/contact" class="nav-link">Contact</a>
+            <a class="nav-link" onclick="openAboutModal()">About</a>
+            <a class="nav-link" onclick="openContactModal()">Contact</a>
         </nav>
         
         <div class="nav-right">
@@ -457,10 +595,118 @@ def home():
         support@bluedwarf.io
     </footer>
     
+    <!-- About Modal -->
+    <div id="aboutModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('aboutModal')">&times;</span>
+            <h2 class="modal-title">About BlueDwarf</h2>
+            <p class="modal-text">
+                BlueDwarf is a comprehensive property analysis platform that provides instant access to property data across the United States. Our platform combines cutting-edge technology with verified professional networks to deliver accurate, reliable property information.
+            </p>
+            <p class="modal-text">
+                <strong>Our Mission:</strong> To democratize access to property information and connect property owners with verified, licensed professionals in their area.
+            </p>
+            <p class="modal-text">
+                <strong>Key Features:</strong>
+            </p>
+            <ul style="margin-left: 20px; color: #666; line-height: 1.6;">
+                <li>Instant property analysis and valuation</li>
+                <li>Street View and aerial mapping integration</li>
+                <li>Comparable property analysis</li>
+                <li>Verified professional network</li>
+                <li>Professional license verification system</li>
+                <li>Comprehensive property reports</li>
+            </ul>
+            <p class="modal-text">
+                <strong>Professional Verification:</strong> We use advanced OCR technology and facial recognition to verify professional licenses, ensuring you only work with legitimate, licensed contractors and service providers.
+            </p>
+        </div>
+    </div>
+    
+    <!-- Contact Modal -->
+    <div id="contactModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('contactModal')">&times;</span>
+            <h2 class="modal-title">Contact Us</h2>
+            <p class="modal-text">
+                Get in touch with our team. We're here to help with any questions about our property analysis platform or professional verification services.
+            </p>
+            
+            <form class="contact-form" onsubmit="submitContactForm(event)">
+                <div class="form-group">
+                    <label class="form-label">Name *</label>
+                    <input type="text" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Email *</label>
+                    <input type="email" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Subject *</label>
+                    <input type="text" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Message *</label>
+                    <textarea class="form-textarea" required></textarea>
+                </div>
+                
+                <button type="submit" class="submit-btn">Send Message</button>
+            </form>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+                <p class="modal-text"><strong>Direct Contact:</strong></p>
+                <p class="modal-text">📧 Email: support@bluedwarf.io</p>
+                <p class="modal-text">📞 Phone: (555) 123-4567</p>
+                <p class="modal-text">🏢 Address: Elite Marketing Lab LLC<br>123 Business Ave, Suite 100<br>Sacramento, CA 95814</p>
+            </div>
+        </div>
+    </div>
+    
     <script>
         function clearForm() {
             document.querySelector('.address-input').value = '';
         }
+        
+        function openAboutModal() {
+            document.getElementById('aboutModal').classList.add('show');
+        }
+        
+        function openContactModal() {
+            document.getElementById('contactModal').classList.add('show');
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        }
+        
+        function submitContactForm(event) {
+            event.preventDefault();
+            alert('Thank you for your message! We will get back to you within 24 hours.');
+            closeModal('contactModal');
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target === modal) {
+                    modal.classList.remove('show');
+                }
+            });
+        }
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                const modals = document.querySelectorAll('.modal.show');
+                modals.forEach(modal => {
+                    modal.classList.remove('show');
+                });
+            }
+        });
     </script>
 </body>
 </html>
@@ -591,6 +837,7 @@ def property_results():
             border-radius: 20px;
             transition: all 0.3s ease;
             font-weight: 500;
+            cursor: pointer;
         }
         
         .nav-link:hover {
@@ -876,6 +1123,103 @@ def property_results():
             background: #5a67d8;
         }
         
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 2rem;
+            color: #666;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+        
+        .modal-close:hover {
+            color: #333;
+        }
+        
+        .modal-title {
+            color: #333;
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        
+        .modal-text {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        
+        .contact-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .form-input, .form-textarea {
+            padding: 12px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .submit-btn {
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .submit-btn:hover {
+            background: #5a67d8;
+        }
+        
         /* Responsive Design */
         @media (max-width: 768px) {
             .property-details-container {
@@ -901,8 +1245,8 @@ def property_results():
         </a>
         
         <nav class="nav-center">
-            <a href="/about" class="nav-link">About</a>
-            <a href="/contact" class="nav-link">Contact</a>
+            <a class="nav-link" onclick="openAboutModal()">About</a>
+            <a class="nav-link" onclick="openContactModal()">Contact</a>
         </nav>
         
         <div class="nav-right">
@@ -1009,6 +1353,73 @@ def property_results():
         </div>
     </section>
     
+    <!-- About Modal -->
+    <div id="aboutModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('aboutModal')">&times;</span>
+            <h2 class="modal-title">About BlueDwarf</h2>
+            <p class="modal-text">
+                BlueDwarf is a comprehensive property analysis platform that provides instant access to property data across the United States. Our platform combines cutting-edge technology with verified professional networks to deliver accurate, reliable property information.
+            </p>
+            <p class="modal-text">
+                <strong>Our Mission:</strong> To democratize access to property information and connect property owners with verified, licensed professionals in their area.
+            </p>
+            <p class="modal-text">
+                <strong>Key Features:</strong>
+            </p>
+            <ul style="margin-left: 20px; color: #666; line-height: 1.6;">
+                <li>Instant property analysis and valuation</li>
+                <li>Street View and aerial mapping integration</li>
+                <li>Comparable property analysis</li>
+                <li>Verified professional network</li>
+                <li>Professional license verification system</li>
+                <li>Comprehensive property reports</li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Contact Modal -->
+    <div id="contactModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('contactModal')">&times;</span>
+            <h2 class="modal-title">Contact Us</h2>
+            <p class="modal-text">
+                Get in touch with our team. We're here to help with any questions about our property analysis platform or professional verification services.
+            </p>
+            
+            <form class="contact-form" onsubmit="submitContactForm(event)">
+                <div class="form-group">
+                    <label class="form-label">Name *</label>
+                    <input type="text" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Email *</label>
+                    <input type="email" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Subject *</label>
+                    <input type="text" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Message *</label>
+                    <textarea class="form-textarea" required></textarea>
+                </div>
+                
+                <button type="submit" class="submit-btn">Send Message</button>
+            </form>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+                <p class="modal-text"><strong>Direct Contact:</strong></p>
+                <p class="modal-text">📧 Email: support@bluedwarf.io</p>
+                <p class="modal-text">📞 Phone: (555) 123-4567</p>
+                <p class="modal-text">🏢 Address: Elite Marketing Lab LLC<br>123 Business Ave, Suite 100<br>Sacramento, CA 95814</p>
+            </div>
+        </div>
+    </div>
+    
     <script>
         function initMap() {
             const propertyLocation = { lat: {{ property_data.lat }}, lng: {{ property_data.lng }} };
@@ -1034,6 +1445,44 @@ def property_results():
             document.querySelector('.address-input').value = '';
         }
         
+        function openAboutModal() {
+            document.getElementById('aboutModal').classList.add('show');
+        }
+        
+        function openContactModal() {
+            document.getElementById('contactModal').classList.add('show');
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        }
+        
+        function submitContactForm(event) {
+            event.preventDefault();
+            alert('Thank you for your message! We will get back to you within 24 hours.');
+            closeModal('contactModal');
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target === modal) {
+                    modal.classList.remove('show');
+                }
+            });
+        }
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                const modals = document.querySelectorAll('.modal.show');
+                modals.forEach(modal => {
+                    modal.classList.remove('show');
+                });
+            }
+        });
+        
         // Initialize map when page loads
         window.onload = initMap;
     </script>
@@ -1048,6 +1497,9 @@ def property_results():
 @app.route('/property-details')
 def property_details():
     address = request.args.get('address', '')
+    
+    if not address:
+        return redirect(url_for('home'))
     
     # Get coordinates for the address
     lat, lng = get_coordinates(address)
@@ -1123,6 +1575,11 @@ def property_details():
             border-radius: 20px;
             transition: all 0.3s ease;
             font-weight: 500;
+            cursor: pointer;
+        }
+        
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.2);
         }
         
         .nav-right {
@@ -1296,6 +1753,13 @@ def property_details():
             margin-bottom: 10px;
         }
         
+        .comparable-value {
+            color: #10b981;
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+        }
+        
         .comparable-details {
             color: #555;
             margin-bottom: 10px;
@@ -1304,6 +1768,13 @@ def property_details():
         .comparable-specs {
             font-size: 0.9rem;
             color: #666;
+        }
+        
+        .comparable-distance {
+            color: #667eea;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-top: 5px;
         }
         
         /* Back Button */
@@ -1323,6 +1794,103 @@ def property_details():
         .back-btn:hover {
             background: #5a67d8;
         }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 2rem;
+            color: #666;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+        
+        .modal-close:hover {
+            color: #333;
+        }
+        
+        .modal-title {
+            color: #333;
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        
+        .modal-text {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        
+        .contact-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .form-input, .form-textarea {
+            padding: 12px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .submit-btn {
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .submit-btn:hover {
+            background: #5a67d8;
+        }
     </style>
 </head>
 <body>
@@ -1333,8 +1901,8 @@ def property_details():
         </a>
         
         <nav class="nav-center">
-            <a href="/about" class="nav-link">About</a>
-            <a href="/contact" class="nav-link">Contact</a>
+            <a class="nav-link" onclick="openAboutModal()">About</a>
+            <a class="nav-link" onclick="openContactModal()">Contact</a>
         </nav>
         
         <div class="nav-right">
@@ -1381,10 +1949,79 @@ def property_details():
                     <div class="comparable-number">{{ property.id }}</div>
                     <div class="comparable-address">{{ property.address }}</div>
                     <div class="comparable-location">{{ property.city }} {{ property.zip }}</div>
+                    <div class="comparable-value">${{ "{:,}".format(property.estimated_value) }}</div>
                     <div class="comparable-details">{{ property.beds }} bed, {{ property.baths }} bath</div>
-                    <div class="comparable-specs">{{ property.sqft }} sq ft • Built {{ property.year_built }}<br>{{ property.days_on_market }} days on market</div>
+                    <div class="comparable-specs">{{ "{:,}".format(property.sqft) }} sq ft • Built {{ property.year_built }}<br>{{ property.days_on_market }} days on market</div>
+                    <div class="comparable-distance">{{ property.distance }} miles away</div>
                 </div>
                 {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- About Modal -->
+    <div id="aboutModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('aboutModal')">&times;</span>
+            <h2 class="modal-title">About BlueDwarf</h2>
+            <p class="modal-text">
+                BlueDwarf is a comprehensive property analysis platform that provides instant access to property data across the United States. Our platform combines cutting-edge technology with verified professional networks to deliver accurate, reliable property information.
+            </p>
+            <p class="modal-text">
+                <strong>Our Mission:</strong> To democratize access to property information and connect property owners with verified, licensed professionals in their area.
+            </p>
+            <p class="modal-text">
+                <strong>Key Features:</strong>
+            </p>
+            <ul style="margin-left: 20px; color: #666; line-height: 1.6;">
+                <li>Instant property analysis and valuation</li>
+                <li>Street View and aerial mapping integration</li>
+                <li>Comparable property analysis</li>
+                <li>Verified professional network</li>
+                <li>Professional license verification system</li>
+                <li>Comprehensive property reports</li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Contact Modal -->
+    <div id="contactModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('contactModal')">&times;</span>
+            <h2 class="modal-title">Contact Us</h2>
+            <p class="modal-text">
+                Get in touch with our team. We're here to help with any questions about our property analysis platform or professional verification services.
+            </p>
+            
+            <form class="contact-form" onsubmit="submitContactForm(event)">
+                <div class="form-group">
+                    <label class="form-label">Name *</label>
+                    <input type="text" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Email *</label>
+                    <input type="email" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Subject *</label>
+                    <input type="text" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Message *</label>
+                    <textarea class="form-textarea" required></textarea>
+                </div>
+                
+                <button type="submit" class="submit-btn">Send Message</button>
+            </form>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+                <p class="modal-text"><strong>Direct Contact:</strong></p>
+                <p class="modal-text">📧 Email: support@bluedwarf.io</p>
+                <p class="modal-text">📞 Phone: (555) 123-4567</p>
+                <p class="modal-text">🏢 Address: Elite Marketing Lab LLC<br>123 Business Ave, Suite 100<br>Sacramento, CA 95814</p>
             </div>
         </div>
     </div>
@@ -1431,8 +2068,10 @@ def property_details():
                         <div style="padding: 10px;">
                             <h4>${property.address}</h4>
                             <p>${property.city} ${property.zip}</p>
+                            <p style="color: #10b981; font-weight: bold;">$${property.estimated_value.toLocaleString()}</p>
                             <p>${property.beds} bed, ${property.baths} bath</p>
-                            <p>${property.sqft} sq ft • Built ${property.year_built}</p>
+                            <p>${property.sqft.toLocaleString()} sq ft • Built ${property.year_built}</p>
+                            <p style="color: #667eea; font-weight: bold;">${property.distance} miles away</p>
                         </div>
                     `
                 });
@@ -1442,6 +2081,44 @@ def property_details():
                 });
             });
         }
+        
+        function openAboutModal() {
+            document.getElementById('aboutModal').classList.add('show');
+        }
+        
+        function openContactModal() {
+            document.getElementById('contactModal').classList.add('show');
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        }
+        
+        function submitContactForm(event) {
+            event.preventDefault();
+            alert('Thank you for your message! We will get back to you within 24 hours.');
+            closeModal('contactModal');
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target === modal) {
+                    modal.classList.remove('show');
+                }
+            });
+        }
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                const modals = document.querySelectorAll('.modal.show');
+                modals.forEach(modal => {
+                    modal.classList.remove('show');
+                });
+            }
+        });
         
         // Initialize map when page loads
         window.onload = initComparableMap;
@@ -1507,6 +2184,11 @@ def get_started():
             border-radius: 20px;
             transition: all 0.3s ease;
             font-weight: 500;
+            cursor: pointer;
+        }
+        
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.2);
         }
         
         .nav-right {
@@ -1623,6 +2305,103 @@ def get_started():
         .login-link a:hover {
             text-decoration: underline;
         }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 2rem;
+            color: #666;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+        
+        .modal-close:hover {
+            color: #333;
+        }
+        
+        .modal-title {
+            color: #333;
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        
+        .modal-text {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        
+        .contact-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .form-input, .form-textarea {
+            padding: 12px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .submit-btn {
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .submit-btn:hover {
+            background: #5a67d8;
+        }
     </style>
 </head>
 <body>
@@ -1633,8 +2412,8 @@ def get_started():
         </a>
         
         <nav class="nav-center">
-            <a href="/about" class="nav-link">About</a>
-            <a href="/contact" class="nav-link">Contact</a>
+            <a class="nav-link" onclick="openAboutModal()">About</a>
+            <a class="nav-link" onclick="openContactModal()">Contact</a>
         </nav>
         
         <div class="nav-right">
@@ -1713,6 +2492,113 @@ def get_started():
             </div>
         </div>
     </div>
+    
+    <!-- About Modal -->
+    <div id="aboutModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('aboutModal')">&times;</span>
+            <h2 class="modal-title">About BlueDwarf</h2>
+            <p class="modal-text">
+                BlueDwarf is a comprehensive property analysis platform that provides instant access to property data across the United States. Our platform combines cutting-edge technology with verified professional networks to deliver accurate, reliable property information.
+            </p>
+            <p class="modal-text">
+                <strong>Our Mission:</strong> To democratize access to property information and connect property owners with verified, licensed professionals in their area.
+            </p>
+            <p class="modal-text">
+                <strong>Key Features:</strong>
+            </p>
+            <ul style="margin-left: 20px; color: #666; line-height: 1.6;">
+                <li>Instant property analysis and valuation</li>
+                <li>Street View and aerial mapping integration</li>
+                <li>Comparable property analysis</li>
+                <li>Verified professional network</li>
+                <li>Professional license verification system</li>
+                <li>Comprehensive property reports</li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Contact Modal -->
+    <div id="contactModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('contactModal')">&times;</span>
+            <h2 class="modal-title">Contact Us</h2>
+            <p class="modal-text">
+                Get in touch with our team. We're here to help with any questions about our property analysis platform or professional verification services.
+            </p>
+            
+            <form class="contact-form" onsubmit="submitContactForm(event)">
+                <div class="form-group">
+                    <label class="form-label">Name *</label>
+                    <input type="text" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Email *</label>
+                    <input type="email" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Subject *</label>
+                    <input type="text" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Message *</label>
+                    <textarea class="form-textarea" required></textarea>
+                </div>
+                
+                <button type="submit" class="submit-btn">Send Message</button>
+            </form>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+                <p class="modal-text"><strong>Direct Contact:</strong></p>
+                <p class="modal-text">📧 Email: support@bluedwarf.io</p>
+                <p class="modal-text">📞 Phone: (555) 123-4567</p>
+                <p class="modal-text">🏢 Address: Elite Marketing Lab LLC<br>123 Business Ave, Suite 100<br>Sacramento, CA 95814</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function openAboutModal() {
+            document.getElementById('aboutModal').classList.add('show');
+        }
+        
+        function openContactModal() {
+            document.getElementById('contactModal').classList.add('show');
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        }
+        
+        function submitContactForm(event) {
+            event.preventDefault();
+            alert('Thank you for your message! We will get back to you within 24 hours.');
+            closeModal('contactModal');
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target === modal) {
+                    modal.classList.remove('show');
+                }
+            });
+        }
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                const modals = document.querySelectorAll('.modal.show');
+                modals.forEach(modal => {
+                    modal.classList.remove('show');
+                });
+            }
+        });
+    </script>
 </body>
 </html>
     ''')
@@ -1789,6 +2675,11 @@ def verify_license():
             border-radius: 20px;
             transition: all 0.3s ease;
             font-weight: 500;
+            cursor: pointer;
+        }
+        
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.2);
         }
         
         .nav-right {
@@ -2084,6 +2975,103 @@ def verify_license():
         .dashboard-btn:hover {
             background: #059669;
         }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 2rem;
+            color: #666;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+        
+        .modal-close:hover {
+            color: #333;
+        }
+        
+        .modal-title {
+            color: #333;
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        
+        .modal-text {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        
+        .contact-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .form-input, .form-textarea {
+            padding: 12px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .submit-btn {
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .submit-btn:hover {
+            background: #5a67d8;
+        }
     </style>
 </head>
 <body>
@@ -2094,8 +3082,8 @@ def verify_license():
         </a>
         
         <nav class="nav-center">
-            <a href="/about" class="nav-link">About</a>
-            <a href="/contact" class="nav-link">Contact</a>
+            <a class="nav-link" onclick="openAboutModal()">About</a>
+            <a class="nav-link" onclick="openContactModal()">Contact</a>
         </nav>
         
         <div class="nav-right">
@@ -2202,6 +3190,73 @@ def verify_license():
         </div>
     </div>
     
+    <!-- About Modal -->
+    <div id="aboutModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('aboutModal')">&times;</span>
+            <h2 class="modal-title">About BlueDwarf</h2>
+            <p class="modal-text">
+                BlueDwarf is a comprehensive property analysis platform that provides instant access to property data across the United States. Our platform combines cutting-edge technology with verified professional networks to deliver accurate, reliable property information.
+            </p>
+            <p class="modal-text">
+                <strong>Our Mission:</strong> To democratize access to property information and connect property owners with verified, licensed professionals in their area.
+            </p>
+            <p class="modal-text">
+                <strong>Key Features:</strong>
+            </p>
+            <ul style="margin-left: 20px; color: #666; line-height: 1.6;">
+                <li>Instant property analysis and valuation</li>
+                <li>Street View and aerial mapping integration</li>
+                <li>Comparable property analysis</li>
+                <li>Verified professional network</li>
+                <li>Professional license verification system</li>
+                <li>Comprehensive property reports</li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Contact Modal -->
+    <div id="contactModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeModal('contactModal')">&times;</span>
+            <h2 class="modal-title">Contact Us</h2>
+            <p class="modal-text">
+                Get in touch with our team. We're here to help with any questions about our property analysis platform or professional verification services.
+            </p>
+            
+            <form class="contact-form" onsubmit="submitContactForm(event)">
+                <div class="form-group">
+                    <label class="form-label">Name *</label>
+                    <input type="text" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Email *</label>
+                    <input type="email" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Subject *</label>
+                    <input type="text" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Message *</label>
+                    <textarea class="form-textarea" required></textarea>
+                </div>
+                
+                <button type="submit" class="submit-btn">Send Message</button>
+            </form>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+                <p class="modal-text"><strong>Direct Contact:</strong></p>
+                <p class="modal-text">📧 Email: support@bluedwarf.io</p>
+                <p class="modal-text">📞 Phone: (555) 123-4567</p>
+                <p class="modal-text">🏢 Address: Elite Marketing Lab LLC<br>123 Business Ave, Suite 100<br>Sacramento, CA 95814</p>
+            </div>
+        </div>
+    </div>
+    
     <script>
         let currentStep = 1;
         
@@ -2232,6 +3287,44 @@ def verify_license():
                 document.getElementById(`step-${currentStep}`).classList.remove('completed');
             }
         }
+        
+        function openAboutModal() {
+            document.getElementById('aboutModal').classList.add('show');
+        }
+        
+        function openContactModal() {
+            document.getElementById('contactModal').classList.add('show');
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        }
+        
+        function submitContactForm(event) {
+            event.preventDefault();
+            alert('Thank you for your message! We will get back to you within 24 hours.');
+            closeModal('contactModal');
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                if (event.target === modal) {
+                    modal.classList.remove('show');
+                }
+            });
+        }
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                const modals = document.querySelectorAll('.modal.show');
+                modals.forEach(modal => {
+                    modal.classList.remove('show');
+                });
+            }
+        });
     </script>
 </body>
 </html>
