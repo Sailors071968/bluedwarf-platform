@@ -14,11 +14,12 @@ CORS(app)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# API Configuration - Using working API keys
+# API Configuration
 RENTCAST_API_KEY = os.environ.get('RENTCAST_API_KEY', 'e796d43b9a1a4c51aee87e48ff7002e1')
-# Using a test API key that should work for basic functionality
-GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY', 'AIzaSyBu-916DdpKAjTmJNIgngS6HL_kDIKU0aU')
-SUMSUB_API_KEY = os.environ.get('SUMSUB_API_KEY', 'your-sumsub-api-key')
+
+# Google Maps API Key - User needs to replace this with their own valid key
+# Instructions provided in the documentation
+GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY', 'YOUR_GOOGLE_MAPS_API_KEY_HERE')
 
 def get_rentcast_property_data(address):
     """Get property data from RentCast API using Property Records endpoint"""
@@ -549,6 +550,15 @@ HOME_TEMPLATE = '''
             display: none;
         }
         
+        .api-notice {
+            background: #fff3cd;
+            color: #856404;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            border-left: 4px solid #ffc107;
+        }
+        
         @media (max-width: 768px) {
             .nav {
                 flex-direction: column;
@@ -591,6 +601,12 @@ HOME_TEMPLATE = '''
     <main class="main-content">
         <h1 class="hero-title">Property Analysis</h1>
         <p class="hero-subtitle">Instant Data • Full US Coverage</p>
+        
+        <!-- API Setup Notice -->
+        <div class="api-notice">
+            <strong>📋 Setup Required:</strong> To enable Street View and Aerial Maps, you need to configure your Google Maps API key. 
+            <a href="#" onclick="openApiSetupModal()" style="color: #856404; text-decoration: underline;">Click here for setup instructions</a>
+        </div>
         
         <div class="search-container">
             <form class="search-form" method="POST" action="/search">
@@ -684,6 +700,53 @@ HOME_TEMPLATE = '''
         </div>
     </div>
 
+    <!-- API Setup Instructions Modal -->
+    <div id="apiSetupModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('apiSetupModal')">&times;</span>
+            <h2 style="color: #667eea; margin-bottom: 1.5rem;">🗺️ Google Maps API Setup</h2>
+            
+            <div style="background: #e3f2fd; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                <strong>📋 Required:</strong> To enable Street View photos and Aerial Maps, you need a Google Maps API key.
+            </div>
+            
+            <h3 style="color: #333; margin-bottom: 1rem;">Step-by-Step Setup:</h3>
+            
+            <ol style="margin-left: 1.5rem; line-height: 1.6;">
+                <li><strong>Go to Google Cloud Console:</strong> <a href="https://console.cloud.google.com/" target="_blank">console.cloud.google.com</a></li>
+                <li><strong>Create a new project</strong> or select an existing one</li>
+                <li><strong>Enable billing</strong> for your project (required for Maps API)</li>
+                <li><strong>Enable these APIs:</strong>
+                    <ul style="margin: 0.5rem 0 0.5rem 1rem;">
+                        <li>Maps JavaScript API</li>
+                        <li>Street View Static API</li>
+                        <li>Geocoding API</li>
+                    </ul>
+                </li>
+                <li><strong>Create an API key:</strong>
+                    <ul style="margin: 0.5rem 0 0.5rem 1rem;">
+                        <li>Go to "Credentials" in the left menu</li>
+                        <li>Click "Create Credentials" → "API Key"</li>
+                        <li>Copy your API key</li>
+                    </ul>
+                </li>
+                <li><strong>Set environment variable:</strong>
+                    <pre style="background: #f5f5f5; padding: 0.5rem; border-radius: 4px; margin: 0.5rem 0;">export GOOGLE_MAPS_API_KEY="your_api_key_here"</pre>
+                </li>
+            </ol>
+            
+            <div style="background: #fff3cd; padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+                <strong>💡 Free Tier:</strong> Google provides $200/month in free credits, which covers most small to medium usage.
+            </div>
+            
+            <div style="text-align: center; margin-top: 1.5rem;">
+                <a href="https://developers.google.com/maps/documentation/javascript/get-api-key" target="_blank" class="btn btn-primary">
+                    📖 View Official Documentation
+                </a>
+            </div>
+        </div>
+    </div>
+
     <!-- Login Modal -->
     <div id="loginModal" class="modal">
         <div class="modal-content">
@@ -714,6 +777,10 @@ HOME_TEMPLATE = '''
             document.getElementById('contactModal').style.display = 'block';
         }
         
+        function openApiSetupModal() {
+            document.getElementById('apiSetupModal').style.display = 'block';
+        }
+        
         function openLoginModal() {
             document.getElementById('loginModal').style.display = 'block';
         }
@@ -726,8 +793,10 @@ HOME_TEMPLATE = '''
         function closeModal(modalId) {
             document.getElementById(modalId).style.display = 'none';
             // Clear any messages
-            document.getElementById('contactSuccess').style.display = 'none';
-            document.getElementById('contactError').style.display = 'none';
+            if (modalId === 'contactModal') {
+                document.getElementById('contactSuccess').style.display = 'none';
+                document.getElementById('contactError').style.display = 'none';
+            }
         }
         
         function clearForm() {
@@ -1041,6 +1110,16 @@ PROPERTY_RESULTS_TEMPLATE = '''
             position: relative;
         }
         
+        .api-setup-notice {
+            background: #fff3cd;
+            color: #856404;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            border-left: 4px solid #ffc107;
+            text-align: center;
+        }
+        
         .professionals-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -1180,8 +1259,16 @@ PROPERTY_RESULTS_TEMPLATE = '''
             <!-- Street View Section -->
             <div class="map-section">
                 <h3 style="margin-bottom: 1rem; color: #667eea;">Street View</h3>
+                
+                {% if google_maps_api_key == 'YOUR_GOOGLE_MAPS_API_KEY_HERE' %}
+                <div class="api-setup-notice">
+                    <strong>🔧 Setup Required:</strong> Google Maps API key not configured. 
+                    <a href="#" onclick="showApiInstructions()" style="color: #856404; text-decoration: underline;">Click here for setup instructions</a>
+                </div>
+                {% endif %}
+                
                 <div class="streetview-container" id="streetview">
-                    {% if google_maps_api_key and property_data and property_data.latitude and property_data.longitude %}
+                    {% if google_maps_api_key != 'YOUR_GOOGLE_MAPS_API_KEY_HERE' and property_data and property_data.latitude and property_data.longitude %}
                     <img id="streetview-img" 
                          src="https://maps.googleapis.com/maps/api/streetview?size=600x250&location={{ property_data.latitude }},{{ property_data.longitude }}&heading=0&pitch=0&key={{ google_maps_api_key }}" 
                          alt="Street View" 
@@ -1197,9 +1284,9 @@ PROPERTY_RESULTS_TEMPLATE = '''
                     </div>
                     {% else %}
                     <div style="color: #666; text-align: center;">
-                        <div style="font-size: 3rem; margin-bottom: 1rem;">🏠</div>
-                        <div>Street View Image Unavailable</div>
-                        <div style="font-size: 0.9rem; margin-top: 0.5rem;">Property coordinates not available</div>
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">🔧</div>
+                        <div>Street View Setup Required</div>
+                        <div style="font-size: 0.9rem; margin-top: 0.5rem;">Configure Google Maps API key to enable Street View</div>
                     </div>
                     {% endif %}
                 </div>
@@ -1214,11 +1301,27 @@ PROPERTY_RESULTS_TEMPLATE = '''
                         <button class="toggle-btn" onclick="toggleMapType('satellite')">Satellite</button>
                     </div>
                 </div>
+                
+                {% if google_maps_api_key == 'YOUR_GOOGLE_MAPS_API_KEY_HERE' %}
+                <div class="api-setup-notice">
+                    <strong>🔧 Setup Required:</strong> Google Maps API key not configured. 
+                    <a href="#" onclick="showApiInstructions()" style="color: #856404; text-decoration: underline;">Click here for setup instructions</a>
+                </div>
+                {% endif %}
+                
                 <div class="map-container" id="map">
+                    {% if google_maps_api_key != 'YOUR_GOOGLE_MAPS_API_KEY_HERE' %}
                     <div style="color: #666; text-align: center;">
                         <div style="font-size: 3rem; margin-bottom: 1rem;">🗺️</div>
                         <div>Loading Interactive Map...</div>
                     </div>
+                    {% else %}
+                    <div style="color: #666; text-align: center;">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">🔧</div>
+                        <div>Aerial Map Setup Required</div>
+                        <div style="font-size: 0.9rem; margin-top: 0.5rem;">Configure Google Maps API key to enable Aerial Maps</div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -1341,9 +1444,14 @@ PROPERTY_RESULTS_TEMPLATE = '''
             document.getElementById('streetview-error').style.display = 'flex';
         }
         
+        // Show API setup instructions
+        function showApiInstructions() {
+            alert('To enable Google Maps features:\\n\\n1. Go to Google Cloud Console\\n2. Create a project and enable billing\\n3. Enable Maps JavaScript API and Street View Static API\\n4. Create an API key\\n5. Set environment variable: GOOGLE_MAPS_API_KEY\\n\\nSee the homepage for detailed instructions.');
+        }
+        
         // Initialize Google Maps with better error handling
         function initMap() {
-            {% if property_data and property_data.latitude and property_data.longitude %}
+            {% if google_maps_api_key != 'YOUR_GOOGLE_MAPS_API_KEY_HERE' and property_data and property_data.latitude and property_data.longitude %}
             const propertyLocation = { lat: {{ property_data.latitude }}, lng: {{ property_data.longitude }} };
             
             try {
@@ -1376,10 +1484,10 @@ PROPERTY_RESULTS_TEMPLATE = '''
                 console.log('Google Maps initialized successfully');
             } catch (error) {
                 console.error('Error initializing Google Maps:', error);
-                showMapError('Map Loading Error', 'Unable to load Google Maps. Please check your internet connection.');
+                showMapError('Map Loading Error', 'Unable to load Google Maps. Please check your API key configuration.');
             }
             {% else %}
-            showMapError('Map Unavailable', 'Property coordinates not available');
+            showMapError('API Setup Required', 'Configure Google Maps API key to enable interactive maps');
             {% endif %}
         }
         
@@ -1387,7 +1495,7 @@ PROPERTY_RESULTS_TEMPLATE = '''
             document.getElementById('map').innerHTML = `
                 <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #666; text-align: center;">
                     <div>
-                        <div style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div>
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">🔧</div>
                         <div style="font-weight: bold; margin-bottom: 0.5rem;">${title}</div>
                         <div style="font-size: 0.9rem;">${message}</div>
                     </div>
@@ -1417,25 +1525,19 @@ PROPERTY_RESULTS_TEMPLATE = '''
         // Handle Google Maps API loading errors
         window.gm_authFailure = function() {
             console.error('Google Maps API authentication failed');
-            showMapError('API Authentication Failed', 'Google Maps API key authentication failed');
+            showMapError('API Authentication Failed', 'Google Maps API key authentication failed. Please check your API key.');
         };
-        
-        // Fallback if Google Maps fails to load
-        setTimeout(function() {
-            if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
-                console.error('Google Maps API failed to load');
-                showMapError('Map Service Unavailable', 'Unable to load Google Maps API');
-            }
-        }, 10000); // 10 second timeout
         
         // Try to initialize map when page loads
         document.addEventListener('DOMContentLoaded', function() {
+            {% if google_maps_api_key != 'YOUR_GOOGLE_MAPS_API_KEY_HERE' %}
             // Wait a bit for the API to load
             setTimeout(initMap, 1000);
+            {% endif %}
         });
     </script>
     
-    {% if google_maps_api_key %}
+    {% if google_maps_api_key != 'YOUR_GOOGLE_MAPS_API_KEY_HERE' %}
     <script async defer 
             src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap&libraries=geometry"
             onerror="console.error('Failed to load Google Maps API script'); showMapError('Script Loading Failed', 'Unable to load Google Maps script');">
