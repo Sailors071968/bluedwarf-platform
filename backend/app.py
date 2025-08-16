@@ -83,6 +83,14 @@ def get_comparable_properties(address, radius_miles=1):
 def home():
     return render_template_string(HOME_TEMPLATE)
 
+@app.route('/about')
+def about():
+    return render_template_string(ABOUT_TEMPLATE)
+
+@app.route('/contact')
+def contact():
+    return render_template_string(CONTACT_TEMPLATE)
+
 @app.route('/search', methods=['POST'])
 def search_property():
     try:
@@ -123,7 +131,7 @@ def property_details():
         comparable_data = session.get('comparable_data')
         search_address = session.get('search_address')
         
-        if not property_data:
+        if not search_address:
             return redirect(url_for('home'))
         
         template_data = {
@@ -481,8 +489,8 @@ HOME_TEMPLATE = '''
     <header class="header">
         <div class="logo">BlueDwarf.io</div>
         <nav class="nav-links">
-            <a href="#about">About</a>
-            <a href="#contact">Contact</a>
+            <a href="/about">About</a>
+            <a href="/contact">Contact</a>
         </nav>
         <div class="auth-buttons">
             <button class="btn btn-outline" onclick="openLoginModal()">Login</button>
@@ -715,6 +723,574 @@ HOME_TEMPLATE = '''
 </html>
 '''
 
+ABOUT_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About - BlueDwarf.io</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+        
+        .nav-links a:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .btn {
+            padding: 0.7rem 1.5rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            background: white;
+            color: #667eea;
+        }
+        
+        .btn:hover {
+            background: #f0f0f0;
+            transform: translateY(-2px);
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+        }
+        
+        .content-card {
+            background: white;
+            border-radius: 15px;
+            padding: 3rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        .page-title {
+            font-size: 2.5rem;
+            color: #333;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        
+        .section {
+            margin-bottom: 2rem;
+        }
+        
+        .section h2 {
+            font-size: 1.5rem;
+            color: #667eea;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 0.5rem;
+        }
+        
+        .section p {
+            line-height: 1.6;
+            color: #555;
+            margin-bottom: 1rem;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        
+        .feature-card {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+        
+        .feature-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        
+        .feature-description {
+            color: #666;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">BlueDwarf.io</div>
+        <nav class="nav-links">
+            <a href="/">Home</a>
+            <a href="/about">About</a>
+            <a href="/contact">Contact</a>
+        </nav>
+        <div>
+            <a href="/" class="btn">← Back to Home</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="content-card">
+            <h1 class="page-title">About BlueDwarf.io</h1>
+            
+            <div class="section">
+                <h2>Our Mission</h2>
+                <p>BlueDwarf.io is a comprehensive property analysis platform that provides instant access to detailed property information across the United States. We connect property seekers with verified real estate professionals while delivering accurate, data-driven insights for informed decision-making.</p>
+            </div>
+            
+            <div class="section">
+                <h2>What We Do</h2>
+                <p>Our platform combines cutting-edge technology with extensive property databases to offer:</p>
+                <ul style="margin-left: 2rem; color: #555; line-height: 1.6;">
+                    <li>Comprehensive property analysis and valuation</li>
+                    <li>Comparable property research and mapping</li>
+                    <li>Professional verification and licensing</li>
+                    <li>Direct connections to local real estate experts</li>
+                    <li>Market insights and investment analysis</li>
+                </ul>
+            </div>
+            
+            <div class="section">
+                <h2>Key Features</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🏠</div>
+                        <div class="feature-title">Property Analysis</div>
+                        <div class="feature-description">Detailed property information including value estimates, rental potential, and market trends</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🗺️</div>
+                        <div class="feature-title">Interactive Maps</div>
+                        <div class="feature-description">Street view images, aerial maps, and comparable property locations with detailed markers</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">👥</div>
+                        <div class="feature-title">Verified Professionals</div>
+                        <div class="feature-description">Connect with licensed real estate agents, contractors, and service providers in your area</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📊</div>
+                        <div class="feature-title">Market Data</div>
+                        <div class="feature-description">Access to comprehensive market data from 140+ million property records nationwide</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔒</div>
+                        <div class="feature-title">Secure Platform</div>
+                        <div class="feature-description">Professional license verification and secure identity authentication for all users</div>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📱</div>
+                        <div class="feature-title">Mobile Friendly</div>
+                        <div class="feature-description">Responsive design that works seamlessly across all devices and screen sizes</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>Our Technology</h2>
+                <p>BlueDwarf.io leverages advanced APIs and data sources including:</p>
+                <ul style="margin-left: 2rem; color: #555; line-height: 1.6;">
+                    <li><strong>RentCast API:</strong> Access to 140+ million property records for accurate valuations and comparable analysis</li>
+                    <li><strong>Google Maps Integration:</strong> Street view imagery and interactive mapping capabilities</li>
+                    <li><strong>Professional Verification:</strong> Sumsub integration for secure license and identity verification</li>
+                    <li><strong>Real-time Data:</strong> Up-to-date market information and property details</li>
+                </ul>
+            </div>
+            
+            <div class="section">
+                <h2>Why Choose BlueDwarf.io?</h2>
+                <p>We're committed to providing the most comprehensive and user-friendly property analysis experience available. Our platform combines accuracy, speed, and professional connections to help you make informed real estate decisions with confidence.</p>
+                <p>Whether you're buying, selling, investing, or simply researching properties, BlueDwarf.io provides the tools and connections you need to succeed in today's real estate market.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+'''
+
+CONTACT_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact - BlueDwarf.io</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+        
+        .nav-links a:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .btn {
+            padding: 0.7rem 1.5rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            background: white;
+            color: #667eea;
+        }
+        
+        .btn:hover {
+            background: #f0f0f0;
+            transform: translateY(-2px);
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 3rem 2rem;
+        }
+        
+        .content-card {
+            background: white;
+            border-radius: 15px;
+            padding: 3rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        .page-title {
+            font-size: 2.5rem;
+            color: #333;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        
+        .contact-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            margin-top: 2rem;
+        }
+        
+        .contact-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+        
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .contact-icon {
+            font-size: 1.5rem;
+            color: #667eea;
+            width: 40px;
+            text-align: center;
+        }
+        
+        .contact-details h3 {
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        
+        .contact-details p {
+            color: #666;
+            margin: 0;
+        }
+        
+        .contact-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .form-group label {
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .form-group input,
+        .form-group textarea {
+            padding: 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+            font-family: inherit;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-group textarea {
+            height: 120px;
+            resize: vertical;
+        }
+        
+        .submit-btn {
+            background: #667eea;
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin-top: 1rem;
+        }
+        
+        .submit-btn:hover {
+            background: #5a6fd8;
+        }
+        
+        .section {
+            margin-bottom: 2rem;
+        }
+        
+        .section h2 {
+            font-size: 1.5rem;
+            color: #667eea;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 0.5rem;
+        }
+        
+        .section p {
+            line-height: 1.6;
+            color: #555;
+        }
+        
+        @media (max-width: 768px) {
+            .contact-grid {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">BlueDwarf.io</div>
+        <nav class="nav-links">
+            <a href="/">Home</a>
+            <a href="/about">About</a>
+            <a href="/contact">Contact</a>
+        </nav>
+        <div>
+            <a href="/" class="btn">← Back to Home</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="content-card">
+            <h1 class="page-title">Contact Us</h1>
+            
+            <div class="section">
+                <p>We're here to help! Whether you have questions about our platform, need technical support, or want to learn more about our services, don't hesitate to reach out.</p>
+            </div>
+            
+            <div class="contact-grid">
+                <div class="contact-info">
+                    <div class="contact-item">
+                        <div class="contact-icon">📧</div>
+                        <div class="contact-details">
+                            <h3>Email Support</h3>
+                            <p>support@bluedwarf.io</p>
+                            <p>We typically respond within 24 hours</p>
+                        </div>
+                    </div>
+                    
+                    <div class="contact-item">
+                        <div class="contact-icon">📞</div>
+                        <div class="contact-details">
+                            <h3>Phone Support</h3>
+                            <p>1-800-BLUE-DWARF</p>
+                            <p>Monday - Friday, 9 AM - 6 PM EST</p>
+                        </div>
+                    </div>
+                    
+                    <div class="contact-item">
+                        <div class="contact-icon">💬</div>
+                        <div class="contact-details">
+                            <h3>Live Chat</h3>
+                            <p>Available on our platform</p>
+                            <p>Real-time support during business hours</p>
+                        </div>
+                    </div>
+                    
+                    <div class="contact-item">
+                        <div class="contact-icon">🏢</div>
+                        <div class="contact-details">
+                            <h3>Business Inquiries</h3>
+                            <p>partnerships@bluedwarf.io</p>
+                            <p>For enterprise and partnership opportunities</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="contact-form">
+                    <h2 style="color: #667eea; margin-bottom: 1rem;">Send us a Message</h2>
+                    <form id="contactForm">
+                        <div class="form-group">
+                            <label for="name">Full Name</label>
+                            <input type="text" id="name" name="name" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="email">Email Address</label>
+                            <input type="email" id="email" name="email" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="subject">Subject</label>
+                            <input type="text" id="subject" name="subject" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="message">Message</label>
+                            <textarea id="message" name="message" placeholder="Please describe your inquiry or feedback..." required></textarea>
+                        </div>
+                        
+                        <button type="submit" class="submit-btn">Send Message</button>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="section" style="margin-top: 3rem;">
+                <h2>Frequently Asked Questions</h2>
+                <p><strong>Q: How accurate is the property data?</strong><br>
+                A: Our data is sourced from RentCast's database of 140+ million properties and is updated regularly to ensure accuracy.</p>
+                
+                <p><strong>Q: Is professional verification required?</strong><br>
+                A: Professional verification is required only for real estate professionals who want to be listed on our platform.</p>
+                
+                <p><strong>Q: What areas do you cover?</strong><br>
+                A: BlueDwarf.io provides property analysis coverage across the entire United States.</p>
+                
+                <p><strong>Q: Is there a cost to use the platform?</strong><br>
+                A: Basic property searches are free. Premium features and professional listings may require a subscription.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('contactForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Get form data
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData);
+            
+            // Simulate form submission (in real implementation, send to server)
+            alert('Thank you for your message! We will get back to you within 24 hours.');
+            
+            // Reset form
+            this.reset();
+        });
+    </script>
+</body>
+</html>
+'''
+
 PROPERTY_RESULTS_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="en">
@@ -831,6 +1407,7 @@ PROPERTY_RESULTS_TEMPLATE = '''
             font-size: 1rem;
             cursor: pointer;
             transition: background 0.3s;
+            text-decoration: none;
         }
         
         .view-details-btn:hover {
@@ -895,6 +1472,14 @@ PROPERTY_RESULTS_TEMPLATE = '''
             justify-content: center;
             color: #6c757d;
             font-size: 1rem;
+            overflow: hidden;
+        }
+        
+        .streetview-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 8px;
         }
         
         .property-details {
@@ -994,7 +1579,6 @@ PROPERTY_RESULTS_TEMPLATE = '''
             }
         }
     </style>
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMaps"></script>
 </head>
 <body>
     <header class="header">
@@ -1014,9 +1598,7 @@ PROPERTY_RESULTS_TEMPLATE = '''
         <div class="property-card">
             <div class="property-header">
                 <div class="property-address">{{ address }}</div>
-                <form action="/property-details" method="POST">
-                    <button type="submit" class="view-details-btn">View Details</button>
-                </form>
+                <a href="/property-details" class="view-details-btn">View Details</a>
             </div>
             
             <div class="maps-section">
@@ -1026,11 +1608,12 @@ PROPERTY_RESULTS_TEMPLATE = '''
                     </div>
                     <div class="map-content" id="streetview-container">
                         {% if google_maps_api_key %}
-                            <img id="streetview-image" src="https://maps.googleapis.com/maps/api/streetview?size=400x300&location={{ address }}&key={{ google_maps_api_key }}" 
-                                 alt="Street View" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;"
-                                 onerror="this.style.display='none'; this.parentNode.innerHTML='Street View Image Unavailable';">
+                            <img class="streetview-image" 
+                                 src="https://maps.googleapis.com/maps/api/streetview?size=600x400&location={{ address|urlencode }}&key={{ google_maps_api_key }}&fov=90" 
+                                 alt="Street View of {{ address }}"
+                                 onerror="this.style.display='none'; this.parentNode.innerHTML='<div style=\'display: flex; align-items: center; justify-content: center; height: 100%; color: #6c757d;\'>Street View Image Unavailable</div>';">
                         {% else %}
-                            Street View Image Unavailable
+                            <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #6c757d;">Street View Image Unavailable</div>
                         {% endif %}
                     </div>
                 </div>
@@ -1122,95 +1705,100 @@ PROPERTY_RESULTS_TEMPLATE = '''
                             <div class="professional-title">Real Estate Agent</div>
                             <div class="professional-subtitle">Licensed real estate professionals</div>
                         </div>
-                        <a href="https://www.google.com/search?q=real+estate+agent+near+{{ address }}" target="_blank" class="website-btn">Website</a>
+                        <a href="https://www.google.com/search?q=real+estate+agent+near+{{ address|urlencode }}" target="_blank" class="website-btn">Website</a>
                     </div>
                     <div class="professional-card">
                         <div class="professional-info">
                             <div class="professional-title">Mortgage Lender</div>
                             <div class="professional-subtitle">Home financing specialists</div>
                         </div>
-                        <a href="https://www.google.com/search?q=mortgage+lender+near+{{ address }}" target="_blank" class="website-btn">Website</a>
+                        <a href="https://www.google.com/search?q=mortgage+lender+near+{{ address|urlencode }}" target="_blank" class="website-btn">Website</a>
                     </div>
                     <div class="professional-card">
                         <div class="professional-info">
                             <div class="professional-title">Real Estate Attorney</div>
                             <div class="professional-subtitle">Legal experts for property transactions</div>
                         </div>
-                        <a href="https://www.google.com/search?q=real+estate+attorney+near+{{ address }}" target="_blank" class="website-btn">Website</a>
+                        <a href="https://www.google.com/search?q=real+estate+attorney+near+{{ address|urlencode }}" target="_blank" class="website-btn">Website</a>
                     </div>
                     <div class="professional-card">
                         <div class="professional-info">
                             <div class="professional-title">Property Inspector</div>
                             <div class="professional-subtitle">Comprehensive property inspections</div>
                         </div>
-                        <a href="https://www.google.com/search?q=property+inspector+near+{{ address }}" target="_blank" class="website-btn">Website</a>
+                        <a href="https://www.google.com/search?q=property+inspector+near+{{ address|urlencode }}" target="_blank" class="website-btn">Website</a>
                     </div>
                     <div class="professional-card">
                         <div class="professional-info">
                             <div class="professional-title">Insurance Agent</div>
                             <div class="professional-subtitle">Property insurance specialists</div>
                         </div>
-                        <a href="https://www.google.com/search?q=insurance+agent+near+{{ address }}" target="_blank" class="website-btn">Website</a>
+                        <a href="https://www.google.com/search?q=insurance+agent+near+{{ address|urlencode }}" target="_blank" class="website-btn">Website</a>
                     </div>
                     <div class="professional-card">
                         <div class="professional-info">
                             <div class="professional-title">General Contractor</div>
                             <div class="professional-subtitle">Home renovation and construction</div>
                         </div>
-                        <a href="https://www.google.com/search?q=general+contractor+near+{{ address }}" target="_blank" class="website-btn">Website</a>
+                        <a href="https://www.google.com/search?q=general+contractor+near+{{ address|urlencode }}" target="_blank" class="website-btn">Website</a>
                     </div>
                     <div class="professional-card">
                         <div class="professional-info">
                             <div class="professional-title">Electrician</div>
                             <div class="professional-subtitle">Electrical services and repairs</div>
                         </div>
-                        <a href="https://www.google.com/search?q=electrician+near+{{ address }}" target="_blank" class="website-btn">Website</a>
+                        <a href="https://www.google.com/search?q=electrician+near+{{ address|urlencode }}" target="_blank" class="website-btn">Website</a>
                     </div>
                     <div class="professional-card">
                         <div class="professional-info">
                             <div class="professional-title">Plumber</div>
                             <div class="professional-subtitle">Plumbing installation and repair</div>
                         </div>
-                        <a href="https://www.google.com/search?q=plumber+near+{{ address }}" target="_blank" class="website-btn">Website</a>
+                        <a href="https://www.google.com/search?q=plumber+near+{{ address|urlencode }}" target="_blank" class="website-btn">Website</a>
                     </div>
                     <div class="professional-card">
                         <div class="professional-info">
                             <div class="professional-title">Roofer</div>
                             <div class="professional-subtitle">Roofing installation and repair</div>
                         </div>
-                        <a href="https://www.google.com/search?q=roofer+near+{{ address }}" target="_blank" class="website-btn">Website</a>
+                        <a href="https://www.google.com/search?q=roofer+near+{{ address|urlencode }}" target="_blank" class="website-btn">Website</a>
                     </div>
                     <div class="professional-card">
                         <div class="professional-info">
                             <div class="professional-title">HVAC Technician</div>
                             <div class="professional-subtitle">Heating and cooling services</div>
                         </div>
-                        <a href="https://www.google.com/search?q=hvac+technician+near+{{ address }}" target="_blank" class="website-btn">Website</a>
+                        <a href="https://www.google.com/search?q=hvac+technician+near+{{ address|urlencode }}" target="_blank" class="website-btn">Website</a>
                     </div>
                     <div class="professional-card">
                         <div class="professional-info">
                             <div class="professional-title">Property Appraiser</div>
                             <div class="professional-subtitle">Professional property valuation</div>
                         </div>
-                        <a href="https://www.google.com/search?q=property+appraiser+near+{{ address }}" target="_blank" class="website-btn">Website</a>
+                        <a href="https://www.google.com/search?q=property+appraiser+near+{{ address|urlencode }}" target="_blank" class="website-btn">Website</a>
                     </div>
                     <div class="professional-card">
                         <div class="professional-info">
                             <div class="professional-title">Painter</div>
                             <div class="professional-subtitle">Interior and exterior painting</div>
                         </div>
-                        <a href="https://www.google.com/search?q=painter+near+{{ address }}" target="_blank" class="website-btn">Website</a>
+                        <a href="https://www.google.com/search?q=painter+near+{{ address|urlencode }}" target="_blank" class="website-btn">Website</a>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    {% if google_maps_api_key %}
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMaps"></script>
+    {% endif %}
+    
     <script>
         let map;
         let currentMapType = 'satellite';
         
         function initMaps() {
+            {% if google_maps_api_key %}
             // Initialize aerial map
             const mapOptions = {
                 zoom: 18,
@@ -1232,9 +1820,13 @@ PROPERTY_RESULTS_TEMPLATE = '''
                     });
                 }
             });
+            {% else %}
+            document.getElementById('aerial-map').innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #6c757d;">Aerial Map Unavailable</div>';
+            {% endif %}
         }
         
         function toggleMapType(type) {
+            {% if google_maps_api_key %}
             if (!map) return;
             
             currentMapType = type;
@@ -1251,13 +1843,16 @@ PROPERTY_RESULTS_TEMPLATE = '''
             } else {
                 map.setMapTypeId(google.maps.MapTypeId.ROADMAP);
             }
+            {% endif %}
         }
         
         // Initialize maps when page loads
         window.onload = function() {
+            {% if google_maps_api_key %}
             if (typeof google !== 'undefined' && google.maps) {
                 initMaps();
             }
+            {% endif %}
         };
     </script>
 </body>
@@ -1586,9 +2181,7 @@ PROPERTY_DETAILS_TEMPLATE = '''
     <header class="header">
         <div class="logo">BlueDwarf.io</div>
         <div class="nav-buttons">
-            <form action="/property-details" method="GET" style="display: inline;">
-                <button type="submit" class="btn btn-back">← Back to Results</button>
-            </form>
+            <a href="/search" class="btn btn-back">← Back to Results</a>
             <form action="/clear-search" method="POST" style="display: inline;">
                 <button type="submit" class="btn btn-clear">Clear All Data</button>
             </form>
