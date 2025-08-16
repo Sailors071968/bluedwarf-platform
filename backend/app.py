@@ -552,15 +552,50 @@ HOME_TEMPLATE = '''
     <div id="contactModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeModal('contactModal')">&times;</span>
-            <h2 style="color: #667eea; margin-bottom: 1rem;">Contact Us</h2>
-            <div style="text-align: left;">
-                <p style="margin-bottom: 1rem;"><strong>BlueDwarf.io</strong></p>
-                <p style="margin-bottom: 0.5rem;"><strong>Phone:</strong> (555) 123-4567</p>
-                <p style="margin-bottom: 0.5rem;"><strong>Email:</strong> support@bluedwarf.io</p>
-                <p style="margin-bottom: 0.5rem;"><strong>Address:</strong> 123 Real Estate Blvd, Suite 100, Property City, CA 90210</p>
-                <p style="margin-bottom: 1rem;"><strong>Business Hours:</strong> Monday - Friday, 9:00 AM - 6:00 PM PST</p>
-                <p style="margin-bottom: 1rem;"><strong>Support:</strong> Available 24/7 for verified professionals</p>
-                <p>For technical support, billing inquiries, or partnership opportunities, please contact us using the information above.</p>
+            <h2 style="color: #667eea; margin-bottom: 1.5rem; text-align: center;">📧 Contact Us</h2>
+            <div style="text-align: center;">
+                <div style="background: #f8f9fa; padding: 2rem; border-radius: 15px; margin-bottom: 1.5rem;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">✉️</div>
+                    <h3 style="color: #667eea; margin-bottom: 0.5rem;">Email Support</h3>
+                    <p style="font-size: 1.1rem; color: #333; margin-bottom: 1rem;">
+                        <strong>support@bluedwarf.io</strong>
+                    </p>
+                    <p style="color: #666; font-size: 0.9rem;">
+                        We respond to all inquiries within 24 hours
+                    </p>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                    <div style="background: #e3f2fd; padding: 1.5rem; border-radius: 10px;">
+                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">🛠️</div>
+                        <h4 style="color: #1976d2; margin-bottom: 0.5rem;">Technical Support</h4>
+                        <p style="color: #666; font-size: 0.9rem;">API issues, platform bugs, integration help</p>
+                    </div>
+                    
+                    <div style="background: #f3e5f5; padding: 1.5rem; border-radius: 10px;">
+                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">💼</div>
+                        <h4 style="color: #7b1fa2; margin-bottom: 0.5rem;">Business Inquiries</h4>
+                        <p style="color: #666; font-size: 0.9rem;">Partnerships, enterprise solutions, custom plans</p>
+                    </div>
+                    
+                    <div style="background: #e8f5e8; padding: 1.5rem; border-radius: 10px;">
+                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔐</div>
+                        <h4 style="color: #388e3c; margin-bottom: 0.5rem;">License Verification</h4>
+                        <p style="color: #666; font-size: 0.9rem;">Professional verification, account approval</p>
+                    </div>
+                </div>
+                
+                <div style="background: #fff3e0; padding: 1.5rem; border-radius: 10px; border-left: 4px solid #ff9800;">
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <span style="font-size: 1.5rem;">⏰</span>
+                        <h4 style="color: #f57c00;">Response Times</h4>
+                    </div>
+                    <p style="color: #666; font-size: 0.9rem; margin-bottom: 0.5rem;">
+                        <strong>Standard Support:</strong> Within 24 hours<br>
+                        <strong>Verified Professionals:</strong> Within 4 hours<br>
+                        <strong>Enterprise Clients:</strong> Within 1 hour
+                    </p>
+                </div>
             </div>
         </div>
     </div>
@@ -863,6 +898,7 @@ PROPERTY_RESULTS_TEMPLATE = '''
             align-items: center;
             justify-content: center;
             margin-bottom: 1rem;
+            position: relative;
         }
         
         .streetview-container {
@@ -873,6 +909,7 @@ PROPERTY_RESULTS_TEMPLATE = '''
             align-items: center;
             justify-content: center;
             margin-bottom: 2rem;
+            position: relative;
         }
         
         .professionals-grid {
@@ -1014,17 +1051,27 @@ PROPERTY_RESULTS_TEMPLATE = '''
             <!-- Street View Section -->
             <div class="map-section">
                 <h3 style="margin-bottom: 1rem; color: #667eea;">Street View</h3>
-                <div class="streetview-container">
+                <div class="streetview-container" id="streetview">
                     {% if google_maps_api_key and property_data and property_data.latitude and property_data.longitude %}
-                    <img src="https://maps.googleapis.com/maps/api/streetview?size=600x250&location={{ property_data.latitude }},{{ property_data.longitude }}&heading=0&pitch=0&key={{ google_maps_api_key }}" 
+                    <img id="streetview-img" 
+                         src="https://maps.googleapis.com/maps/api/streetview?size=600x250&location={{ property_data.latitude }},{{ property_data.longitude }}&heading=0&pitch=0&key={{ google_maps_api_key }}" 
                          alt="Street View" 
-                         style="width: 100%; height: 100%; object-fit: cover; border-radius: 10px;"
-                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                    <div style="display: none; align-items: center; justify-content: center; height: 100%; color: #666;">
-                        Street View Image Unavailable
+                         style="width: 100%; height: 100%; object-fit: cover; border-radius: 10px; display: block;"
+                         onload="handleStreetViewLoad()"
+                         onerror="handleStreetViewError()">
+                    <div id="streetview-error" style="display: none; align-items: center; justify-content: center; height: 100%; color: #666; text-align: center;">
+                        <div>
+                            <div style="font-size: 3rem; margin-bottom: 1rem;">🏠</div>
+                            <div>Street View Image Unavailable</div>
+                            <div style="font-size: 0.9rem; margin-top: 0.5rem;">This location may not have Street View coverage</div>
+                        </div>
                     </div>
                     {% else %}
-                    <div style="color: #666;">Street View Image Unavailable</div>
+                    <div style="color: #666; text-align: center;">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">🏠</div>
+                        <div>Street View Image Unavailable</div>
+                        <div style="font-size: 0.9rem; margin-top: 0.5rem;">Property coordinates not available</div>
+                    </div>
                     {% endif %}
                 </div>
             </div>
@@ -1038,7 +1085,12 @@ PROPERTY_RESULTS_TEMPLATE = '''
                         <button class="toggle-btn" onclick="toggleMapType('satellite')">Satellite</button>
                     </div>
                 </div>
-                <div class="map-container" id="map"></div>
+                <div class="map-container" id="map">
+                    <div style="color: #666; text-align: center;">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">🗺️</div>
+                        <div>Loading Interactive Map...</div>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -1149,21 +1201,51 @@ PROPERTY_RESULTS_TEMPLATE = '''
         let map;
         let currentMapType = 'roadmap';
         
+        // Street View error handling
+        function handleStreetViewLoad() {
+            console.log('Street View image loaded successfully');
+        }
+        
+        function handleStreetViewError() {
+            console.log('Street View image failed to load');
+            document.getElementById('streetview-img').style.display = 'none';
+            document.getElementById('streetview-error').style.display = 'flex';
+        }
+        
+        // Initialize Google Maps
         function initMap() {
             {% if property_data and property_data.latitude and property_data.longitude %}
             const propertyLocation = { lat: {{ property_data.latitude }}, lng: {{ property_data.longitude }} };
             
-            map = new google.maps.Map(document.getElementById("map"), {
-                zoom: 15,
-                center: propertyLocation,
-                mapTypeId: currentMapType
-            });
-            
-            new google.maps.Marker({
-                position: propertyLocation,
-                map: map,
-                title: "{{ address }}"
-            });
+            try {
+                map = new google.maps.Map(document.getElementById("map"), {
+                    zoom: 15,
+                    center: propertyLocation,
+                    mapTypeId: currentMapType,
+                    mapTypeControl: false,
+                    streetViewControl: true,
+                    fullscreenControl: true,
+                    zoomControl: true
+                });
+                
+                // Add marker for the property
+                new google.maps.Marker({
+                    position: propertyLocation,
+                    map: map,
+                    title: "{{ address }}",
+                    icon: {
+                        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" fill="#667eea" stroke="white" stroke-width="3"/><text x="16" y="20" text-anchor="middle" fill="white" font-family="Arial" font-size="12" font-weight="bold">🏠</text></svg>'),
+                        scaledSize: new google.maps.Size(32, 32)
+                    }
+                });
+                
+                console.log('Google Maps initialized successfully');
+            } catch (error) {
+                console.error('Error initializing Google Maps:', error);
+                document.getElementById('map').innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #666; text-align: center;"><div><div style="font-size: 3rem; margin-bottom: 1rem;">⚠️</div><div>Map Loading Error</div><div style="font-size: 0.9rem; margin-top: 0.5rem;">Please check your internet connection</div></div></div>';
+            }
+            {% else %}
+            document.getElementById('map').innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #666; text-align: center;"><div><div style="font-size: 3rem; margin-bottom: 1rem;">📍</div><div>Map Unavailable</div><div style="font-size: 0.9rem; margin-top: 0.5rem;">Property coordinates not available</div></div></div>';
             {% endif %}
         }
         
@@ -1185,10 +1267,27 @@ PROPERTY_RESULTS_TEMPLATE = '''
             const searchUrl = "https://www.google.com/search?q=" + encodeURIComponent(query);
             window.open(searchUrl, '_blank');
         }
+        
+        // Handle Google Maps API loading errors
+        window.gm_authFailure = function() {
+            console.error('Google Maps API authentication failed');
+            document.getElementById('map').innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #666; text-align: center;"><div><div style="font-size: 3rem; margin-bottom: 1rem;">🔑</div><div>API Key Error</div><div style="font-size: 0.9rem; margin-top: 0.5rem;">Google Maps API key authentication failed</div></div></div>';
+        };
+        
+        // Fallback if Google Maps fails to load
+        setTimeout(function() {
+            if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
+                console.error('Google Maps API failed to load');
+                document.getElementById('map').innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #666; text-align: center;"><div><div style="font-size: 3rem; margin-bottom: 1rem;">🌐</div><div>Map Service Unavailable</div><div style="font-size: 0.9rem; margin-top: 0.5rem;">Unable to load Google Maps</div></div></div>';
+            }
+        }, 10000); // 10 second timeout
     </script>
     
     {% if google_maps_api_key %}
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap"></script>
+    <script async defer 
+            src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap&libraries=geometry"
+            onerror="console.error('Failed to load Google Maps API script');">
+    </script>
     {% endif %}
 </body>
 </html>
