@@ -9,6 +9,7 @@ import time
 import uuid
 import json
 import os
+import random
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -33,6 +34,61 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def get_coordinates(address):
+    """Get latitude and longitude for an address using Google Geocoding API"""
+    try:
+        encoded_address = urllib.parse.quote(address)
+        url = f"https://maps.googleapis.com/maps/api/geocode/json?address={encoded_address}&key={GOOGLE_MAPS_API_KEY}"
+        response = requests.get(url)
+        data = response.json()
+        
+        if data['status'] == 'OK' and data['results']:
+            location = data['results'][0]['geometry']['location']
+            return location['lat'], location['lng']
+    except Exception as e:
+        print(f"Geocoding error: {e}")
+    
+    # Default coordinates for Sacramento, CA if geocoding fails
+    return 38.5816, -121.4944
+
+def generate_comparable_properties(address, lat, lng):
+    """Generate mock comparable properties around the given location"""
+    properties = []
+    
+    # Generate 3 comparable properties with realistic data
+    property_types = [
+        {"beds": 3, "baths": 2, "sqft": random.randint(1200, 1600), "year": random.randint(1990, 2020)},
+        {"beds": 4, "baths": 2, "sqft": random.randint(1400, 1800), "year": random.randint(1985, 2015)},
+        {"beds": 3, "baths": 3, "sqft": random.randint(1300, 1700), "year": random.randint(1995, 2010)}
+    ]
+    
+    streets = ["Cedar Lane", "Pine Street", "Maple Drive", "Oak Avenue", "Elm Street", "Birch Way"]
+    
+    for i, prop_type in enumerate(property_types):
+        # Generate nearby coordinates (within ~1.5 mile radius)
+        lat_offset = random.uniform(-0.02, 0.02)  # ~1.4 miles
+        lng_offset = random.uniform(-0.02, 0.02)
+        
+        street_num = random.randint(1000, 9999)
+        street_name = random.choice(streets)
+        
+        properties.append({
+            'id': i + 1,
+            'address': f"{street_num} {street_name}",
+            'city': "Sacramento, CA",
+            'zip': f"958{random.randint(10, 99)}",
+            'beds': prop_type['beds'],
+            'baths': prop_type['baths'],
+            'sqft': prop_type['sqft'],
+            'year_built': prop_type['year'],
+            'days_on_market': random.randint(5, 180),
+            'lat': lat + lat_offset,
+            'lng': lng + lng_offset,
+            'estimated_value': random.randint(450000, 650000)
+        })
+    
+    return properties
 
 class SumsubVerification:
     def __init__(self):
@@ -191,15 +247,6 @@ def home():
         
         .btn-login:hover {
             background: rgba(139, 92, 246, 1);
-        }
-        
-        .btn-verify {
-            background: rgba(255, 152, 0, 0.9);
-            color: white;
-        }
-        
-        .btn-verify:hover {
-            background: rgba(255, 152, 0, 1);
         }
         
         .btn-primary {
@@ -372,9 +419,8 @@ def home():
         </nav>
         
         <div class="nav-right">
-            <a href="/verify" class="btn btn-verify">🔒 Verify License</a>
             <a href="/login" class="btn btn-login">Login</a>
-            <a href="/register" class="btn btn-primary">Get Started</a>
+            <a href="/get-started" class="btn btn-primary">Get Started</a>
         </div>
     </header>
     
@@ -424,6 +470,12 @@ def home():
 def property_results():
     address = request.form.get('address', '')
     
+    # Get coordinates for the address
+    lat, lng = get_coordinates(address)
+    
+    # Generate comparable properties
+    comparable_properties = generate_comparable_properties(address, lat, lng)
+    
     # Mock property data (replace with real API calls)
     property_data = {
         'address': address,
@@ -432,49 +484,57 @@ def property_results():
         'bathrooms': '2',
         'square_feet': '1,492',
         'year_built': '1964',
-        'monthly_rent': '$3,000'
+        'monthly_rent': '$3,000',
+        'lat': lat,
+        'lng': lng
     }
     
     # Extract city and state from address
     city_state = "Sacramento, CA"  # This should be parsed from the address
     
-    # Mock professionals data
+    # Mock professionals data with verification status
     professionals = [
         {
             'title': 'Real Estate Agent',
             'location': city_state,
             'description': 'Experienced agent specializing in residential properties and first-time buyers',
-            'verified': True
+            'verified': True,
+            'website': 'https://example.com'
         },
         {
             'title': 'Mortgage Lender',
             'location': city_state,
             'description': 'Specialized in home loans and refinancing with competitive rates',
-            'verified': True
+            'verified': True,
+            'website': 'https://example.com'
         },
         {
             'title': 'Real Estate Attorney',
             'location': city_state,
             'description': 'Expert in real estate transactions and contract negotiations',
-            'verified': False
+            'verified': False,
+            'website': 'https://example.com'
         },
         {
             'title': 'Property Inspector',
             'location': city_state,
             'description': 'Certified home inspector with comprehensive inspection services',
-            'verified': True
+            'verified': True,
+            'website': 'https://example.com'
         },
         {
             'title': 'Insurance Agent',
             'location': city_state,
             'description': 'Home and auto insurance specialist with competitive coverage options',
-            'verified': False
+            'verified': False,
+            'website': 'https://example.com'
         },
         {
             'title': 'Property Manager',
             'location': city_state,
             'description': 'Professional property management services for residential and commercial properties',
-            'verified': True
+            'verified': True,
+            'website': 'https://example.com'
         }
     ]
     
@@ -485,6 +545,7 @@ def property_results():
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BlueDwarf - Property Analysis Platform</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=geometry"></script>
     <style>
         * {
             margin: 0;
@@ -556,11 +617,6 @@ def property_results():
             color: white;
         }
         
-        .btn-verify {
-            background: rgba(255, 152, 0, 0.9);
-            color: white;
-        }
-        
         .btn-primary {
             background: rgba(79, 70, 229, 0.9);
             color: white;
@@ -582,27 +638,32 @@ def property_results():
         .search-form {
             display: flex;
             gap: 10px;
-            align-items: center;
+            align-items: end;
+        }
+        
+        .form-group {
+            flex: 1;
         }
         
         .form-label {
+            display: block;
             font-weight: 600;
             color: #333;
-            min-width: 80px;
+            margin-bottom: 5px;
         }
         
         .address-input {
-            flex: 1;
+            width: 100%;
             padding: 10px 15px;
             border: 2px solid #e5e7eb;
-            border-radius: 8px;
+            border-radius: 10px;
             font-size: 1rem;
         }
         
         .btn-search, .btn-clear {
             padding: 10px 20px;
             border: none;
-            border-radius: 8px;
+            border-radius: 10px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
@@ -618,140 +679,141 @@ def property_results():
             color: white;
         }
         
-        /* Results Content */
-        .results-content {
-            background: white;
-            min-height: calc(100vh - 200px);
-            padding: 40px 30px;
+        /* Results Section */
+        .results-section {
+            padding: 20px 30px;
         }
         
         .property-header {
             text-align: center;
-            margin-bottom: 40px;
-        }
-        
-        .property-address {
-            font-size: 2rem;
-            font-weight: 700;
-            color: #333;
+            color: white;
             margin-bottom: 30px;
         }
         
-        /* Property Details Section */
-        .property-details {
-            background: #f8f9fa;
-            border-radius: 12px;
-            padding: 30px;
-            margin-bottom: 50px;
-            display: flex;
+        .property-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        
+        .property-details-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
             gap: 30px;
-            align-items: flex-start;
+            max-width: 1200px;
+            margin: 0 auto;
         }
         
-        .property-info {
-            flex: 1;
+        .property-details {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
         }
         
-        .property-info h3 {
+        .details-title {
             color: #667eea;
-            font-size: 1.3rem;
+            font-size: 1.5rem;
+            font-weight: 600;
             margin-bottom: 20px;
         }
         
-        .property-list {
-            list-style: none;
-            padding: 0;
-        }
-        
-        .property-list li {
+        .detail-row {
             display: flex;
             justify-content: space-between;
-            padding: 8px 0;
+            padding: 10px 0;
             border-bottom: 1px solid #e5e7eb;
         }
         
-        .property-list li:last-child {
-            border-bottom: none;
-        }
-        
-        .property-label {
+        .detail-label {
             font-weight: 600;
             color: #333;
         }
         
-        .property-value {
+        .detail-value {
             color: #666;
         }
         
-        .property-visuals {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-        
+        /* Street View and Maps */
         .visual-section {
-            text-align: center;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
         }
         
         .visual-title {
             color: #667eea;
+            font-size: 1.2rem;
             font-weight: 600;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
+            text-align: center;
         }
         
-        .visual-placeholder {
-            background: #e5e7eb;
-            border-radius: 8px;
-            height: 150px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #6b7280;
-            font-weight: 500;
+        .street-view-container, .map-container {
+            margin-bottom: 30px;
         }
         
-        .btn-view-details {
+        .street-view-image {
+            width: 100%;
+            height: 200px;
+            border-radius: 10px;
+            object-fit: cover;
+        }
+        
+        #map, #aerial-map {
+            width: 100%;
+            height: 200px;
+            border-radius: 10px;
+        }
+        
+        .view-details-btn {
             background: #667eea;
             color: white;
             padding: 12px 30px;
             border: none;
-            border-radius: 8px;
+            border-radius: 10px;
             font-weight: 600;
             cursor: pointer;
-            margin-top: 20px;
+            display: block;
+            margin: 20px auto 0;
+            transition: all 0.3s ease;
+        }
+        
+        .view-details-btn:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
         }
         
         /* Professionals Section */
         .professionals-section {
-            margin-top: 50px;
+            padding: 40px 30px;
         }
         
         .professionals-title {
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: #333;
             text-align: center;
-            margin-bottom: 40px;
+            color: white;
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 30px;
         }
         
         .professionals-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
             gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
         }
         
         .professional-card {
-            background: white;
-            border-left: 4px solid #667eea;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            border-left: 5px solid #667eea;
             transition: transform 0.3s ease;
         }
         
         .professional-card:hover {
-            transform: translateY(-2px);
+            transform: translateY(-5px);
         }
         
         .professional-header {
@@ -762,9 +824,9 @@ def property_results():
         }
         
         .professional-title {
-            color: #667eea;
-            font-size: 1.1rem;
-            font-weight: 600;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #333;
         }
         
         .verified-badge {
@@ -776,58 +838,53 @@ def property_results():
             font-weight: 600;
         }
         
+        .unverified-badge {
+            background: #ef4444;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
         .professional-location {
-            color: #6b7280;
+            color: #666;
             font-size: 0.9rem;
             margin-bottom: 10px;
         }
         
         .professional-description {
-            color: #374151;
+            color: #555;
             line-height: 1.5;
             margin-bottom: 15px;
         }
         
-        .btn-website {
+        .website-btn {
             background: #667eea;
             color: white;
             padding: 8px 16px;
             border: none;
-            border-radius: 6px;
+            border-radius: 8px;
             font-weight: 600;
             cursor: pointer;
             text-decoration: none;
             display: inline-block;
+            transition: all 0.3s ease;
         }
         
-        .btn-website:hover {
+        .website-btn:hover {
             background: #5a67d8;
-        }
-        
-        /* Footer */
-        .footer {
-            background: #667eea;
-            color: white;
-            text-align: center;
-            padding: 20px;
-            font-size: 0.9rem;
         }
         
         /* Responsive Design */
         @media (max-width: 768px) {
-            .header {
-                flex-direction: column;
-                gap: 15px;
-                padding: 20px;
+            .property-details-container {
+                grid-template-columns: 1fr;
             }
             
             .search-form {
                 flex-direction: column;
-                align-items: stretch;
-            }
-            
-            .property-details {
-                flex-direction: column;
+                gap: 15px;
             }
             
             .professionals-grid {
@@ -849,9 +906,8 @@ def property_results():
         </nav>
         
         <div class="nav-right">
-            <a href="/verify" class="btn btn-verify">🔒 Verify License</a>
             <a href="/login" class="btn btn-login">Login</a>
-            <a href="/register" class="btn btn-primary">Get Started</a>
+            <a href="/get-started" class="btn btn-primary">Get Started</a>
         </div>
     </header>
     
@@ -859,109 +915,825 @@ def property_results():
     <section class="search-section">
         <div class="search-card">
             <form action="/property-results" method="POST" class="search-form">
-                <label class="form-label">Address</label>
-                <input 
-                    type="text" 
-                    name="address" 
-                    class="address-input"
-                    value="{{ property_data.address }}"
-                    placeholder="123 Pine Street, Any City, WA, 54321"
-                >
+                <div class="form-group">
+                    <label class="form-label">Address</label>
+                    <input 
+                        type="text" 
+                        name="address" 
+                        class="address-input"
+                        value="{{ property_data.address }}"
+                        placeholder="123 Pine Street, Any City, WA, 54321"
+                        required
+                    >
+                </div>
                 <button type="submit" class="btn-search">Search</button>
                 <button type="button" class="btn-clear" onclick="clearForm()">Clear</button>
             </form>
         </div>
     </section>
     
-    <!-- Results Content -->
-    <main class="results-content">
+    <!-- Results Section -->
+    <section class="results-section">
         <div class="property-header">
-            <h1 class="property-address">{{ property_data.address }}</h1>
+            <h1 class="property-title">{{ property_data.address }}</h1>
         </div>
         
-        <!-- Property Details -->
-        <section class="property-details">
-            <div class="property-info">
-                <h3>Property Details</h3>
-                <ul class="property-list">
-                    <li>
-                        <span class="property-label">Estimated Value:</span>
-                        <span class="property-value">{{ property_data.estimated_value }}</span>
-                    </li>
-                    <li>
-                        <span class="property-label">Bedrooms:</span>
-                        <span class="property-value">{{ property_data.bedrooms }}</span>
-                    </li>
-                    <li>
-                        <span class="property-label">Bathrooms:</span>
-                        <span class="property-value">{{ property_data.bathrooms }}</span>
-                    </li>
-                    <li>
-                        <span class="property-label">Square Feet:</span>
-                        <span class="property-value">{{ property_data.square_feet }}</span>
-                    </li>
-                    <li>
-                        <span class="property-label">Year Built:</span>
-                        <span class="property-value">{{ property_data.year_built }}</span>
-                    </li>
-                    <li>
-                        <span class="property-label">Monthly Rent Est:</span>
-                        <span class="property-value">{{ property_data.monthly_rent }}</span>
-                    </li>
-                </ul>
+        <div class="property-details-container">
+            <div class="property-details">
+                <h2 class="details-title">Property Details</h2>
+                <div class="detail-row">
+                    <span class="detail-label">Estimated Value:</span>
+                    <span class="detail-value">{{ property_data.estimated_value }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Bedrooms:</span>
+                    <span class="detail-value">{{ property_data.bedrooms }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Bathrooms:</span>
+                    <span class="detail-value">{{ property_data.bathrooms }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Square Feet:</span>
+                    <span class="detail-value">{{ property_data.square_feet }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Year Built:</span>
+                    <span class="detail-value">{{ property_data.year_built }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Monthly Rent Est:</span>
+                    <span class="detail-value">{{ property_data.monthly_rent }}</span>
+                </div>
             </div>
             
-            <div class="property-visuals">
-                <div class="visual-section">
-                    <div class="visual-title">Street View</div>
-                    <div class="visual-placeholder">Street View Image</div>
+            <div class="visual-section">
+                <div class="street-view-container">
+                    <h3 class="visual-title">Street View</h3>
+                    <img 
+                        src="https://maps.googleapis.com/maps/api/streetview?size=400x200&location={{ property_data.lat }},{{ property_data.lng }}&key={{ google_maps_api_key }}"
+                        alt="Street View"
+                        class="street-view-image"
+                    >
                 </div>
                 
-                <div class="visual-section">
-                    <div class="visual-title">Aerial View (2 blocks)</div>
-                    <div class="visual-placeholder">Aerial Map View</div>
+                <div class="map-container">
+                    <h3 class="visual-title">Aerial View (2 blocks)</h3>
+                    <div id="aerial-map"></div>
                 </div>
                 
-                <button class="btn-view-details">View Details</button>
+                <button class="view-details-btn" onclick="showDetails()">View Details</button>
             </div>
-        </section>
-        
-        <!-- Local Professionals -->
-        <section class="professionals-section">
-            <h2 class="professionals-title">Local Professionals in {{ city_state }}</h2>
-            
-            <div class="professionals-grid">
-                {% for professional in professionals %}
-                <div class="professional-card">
-                    <div class="professional-header">
-                        <h3 class="professional-title">{{ professional.title }}</h3>
-                        {% if professional.verified %}
-                        <span class="verified-badge">✅ Verified</span>
-                        {% endif %}
-                    </div>
-                    <div class="professional-location">{{ professional.location }}</div>
-                    <p class="professional-description">{{ professional.description }}</p>
-                    <a href="#" class="btn-website">Website</a>
-                </div>
-                {% endfor %}
-            </div>
-        </section>
-    </main>
+        </div>
+    </section>
     
-    <!-- Footer -->
-    <footer class="footer">
-        © 2024 Elite Marketing Lab LLC. All rights reserved.<br>
-        support@bluedwarf.io
-    </footer>
+    <!-- Professionals Section -->
+    <section class="professionals-section">
+        <h2 class="professionals-title">Local Professionals in {{ city_state }}</h2>
+        <div class="professionals-grid">
+            {% for professional in professionals %}
+            <div class="professional-card">
+                <div class="professional-header">
+                    <h3 class="professional-title">{{ professional.title }}</h3>
+                    {% if professional.verified %}
+                        <span class="verified-badge">✅ Verified</span>
+                    {% else %}
+                        <span class="unverified-badge">❌ Unverified</span>
+                    {% endif %}
+                </div>
+                <div class="professional-location">{{ professional.location }}</div>
+                <div class="professional-description">{{ professional.description }}</div>
+                <a href="{{ professional.website }}" class="website-btn" target="_blank">Website</a>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
     
     <script>
+        function initMap() {
+            const propertyLocation = { lat: {{ property_data.lat }}, lng: {{ property_data.lng }} };
+            
+            const map = new google.maps.Map(document.getElementById("aerial-map"), {
+                zoom: 16,
+                center: propertyLocation,
+                mapTypeId: 'satellite'
+            });
+            
+            new google.maps.Marker({
+                position: propertyLocation,
+                map: map,
+                title: "{{ property_data.address }}"
+            });
+        }
+        
+        function showDetails() {
+            window.location.href = '/property-details?address=' + encodeURIComponent('{{ property_data.address }}');
+        }
+        
         function clearForm() {
             document.querySelector('.address-input').value = '';
         }
+        
+        // Initialize map when page loads
+        window.onload = initMap;
     </script>
 </body>
 </html>
-    ''', property_data=property_data, professionals=professionals, city_state=city_state)
+    ''', 
+    property_data=property_data, 
+    professionals=professionals, 
+    city_state=city_state,
+    google_maps_api_key=GOOGLE_MAPS_API_KEY)
+
+@app.route('/property-details')
+def property_details():
+    address = request.args.get('address', '')
+    
+    # Get coordinates for the address
+    lat, lng = get_coordinates(address)
+    
+    # Generate comparable properties
+    comparable_properties = generate_comparable_properties(address, lat, lng)
+    
+    # Mock property data
+    property_data = {
+        'address': address,
+        'estimated_value': '$500,000',
+        'bedrooms': '4',
+        'bathrooms': '2',
+        'square_feet': '1,492',
+        'year_built': '1964',
+        'monthly_rent': '$3,000',
+        'rent_low': '$2,700',
+        'rent_high': '$3,300',
+        'lat': lat,
+        'lng': lng
+    }
+    
+    return render_template_string('''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property Details - BlueDwarf</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=geometry"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        /* Header Navigation */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 30px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            text-decoration: none;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .nav-center {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .nav-link {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .nav-right {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .btn-login {
+            background: rgba(139, 92, 246, 0.9);
+            color: white;
+        }
+        
+        .btn-primary {
+            background: rgba(79, 70, 229, 0.9);
+            color: white;
+        }
+        
+        /* Content */
+        .content {
+            padding: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .page-title {
+            text-align: center;
+            color: white;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 30px;
+        }
+        
+        /* Rent Estimation */
+        .rent-section {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .rent-title {
+            color: #667eea;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+        
+        .rent-estimate {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .rent-range {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .rent-range-slider {
+            width: 100%;
+            height: 20px;
+            background: linear-gradient(to right, #10b981 0%, #3b82f6 100%);
+            border-radius: 10px;
+            position: relative;
+        }
+        
+        .rent-labels {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 600;
+            color: #666;
+        }
+        
+        /* Comparable Properties Map */
+        .map-section {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .map-title {
+            color: #333;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .map-description {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        
+        #comparable-map {
+            width: 100%;
+            height: 400px;
+            border-radius: 10px;
+        }
+        
+        /* Comparable Properties Cards */
+        .comparables-section {
+            background: rgba(255, 152, 0, 0.1);
+            border-radius: 20px;
+            padding: 30px;
+        }
+        
+        .comparables-title {
+            color: #d97706;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .comparables-subtitle {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        
+        .comparables-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .comparable-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            border-left: 5px solid #d97706;
+            position: relative;
+        }
+        
+        .comparable-number {
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            background: #d97706;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+        }
+        
+        .comparable-address {
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .comparable-location {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+        
+        .comparable-details {
+            color: #555;
+            margin-bottom: 10px;
+        }
+        
+        .comparable-specs {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        /* Back Button */
+        .back-btn {
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 20px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .back-btn:hover {
+            background: #5a67d8;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header Navigation -->
+    <header class="header">
+        <a href="/" class="logo">
+            🏠 BlueDwarf
+        </a>
+        
+        <nav class="nav-center">
+            <a href="/about" class="nav-link">About</a>
+            <a href="/contact" class="nav-link">Contact</a>
+        </nav>
+        
+        <div class="nav-right">
+            <a href="/login" class="btn btn-login">Login</a>
+            <a href="/get-started" class="btn btn-primary">Get Started</a>
+        </div>
+    </header>
+    
+    <div class="content">
+        <a href="javascript:history.back()" class="back-btn">← Back to Results</a>
+        
+        <h1 class="page-title">{{ property_data.address }}</h1>
+        
+        <!-- Rent Estimation Section -->
+        <div class="rent-section">
+            <h2 class="rent-title">Estimated Monthly Rent: {{ property_data.monthly_rent }}</h2>
+            
+            <div class="rent-range">
+                <div style="width: 100%;">
+                    <div class="rent-range-slider"></div>
+                    <div class="rent-labels">
+                        <span>Low Estimate<br>{{ property_data.rent_low }}</span>
+                        <span>High Estimate<br>{{ property_data.rent_high }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Comparable Properties Map -->
+        <div class="map-section">
+            <h2 class="map-title">Comparable Properties Map with Numbered Flags</h2>
+            <p class="map-description">Interactive map showing numbered flags for each comparable property location.</p>
+            <div id="comparable-map"></div>
+        </div>
+        
+        <!-- Comparable Properties Cards -->
+        <div class="comparables-section">
+            <h2 class="comparables-title">Comparable Properties from Same Area</h2>
+            <p class="comparables-subtitle">Comparable properties from {{ property_data.address.split(',')[-2] if ',' in property_data.address else 'Sacramento' }}, CA within 1.5 mile radius.</p>
+            
+            <div class="comparables-grid">
+                {% for property in comparable_properties %}
+                <div class="comparable-card">
+                    <div class="comparable-number">{{ property.id }}</div>
+                    <div class="comparable-address">{{ property.address }}</div>
+                    <div class="comparable-location">{{ property.city }} {{ property.zip }}</div>
+                    <div class="comparable-details">{{ property.beds }} bed, {{ property.baths }} bath</div>
+                    <div class="comparable-specs">{{ property.sqft }} sq ft • Built {{ property.year_built }}<br>{{ property.days_on_market }} days on market</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function initComparableMap() {
+            const propertyLocation = { lat: {{ property_data.lat }}, lng: {{ property_data.lng }} };
+            const comparableProperties = {{ comparable_properties | tojsonfilter }};
+            
+            const map = new google.maps.Map(document.getElementById("comparable-map"), {
+                zoom: 14,
+                center: propertyLocation,
+                mapTypeId: 'roadmap'
+            });
+            
+            // Main property marker (red)
+            new google.maps.Marker({
+                position: propertyLocation,
+                map: map,
+                title: "{{ property_data.address }}",
+                icon: {
+                    url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
+                }
+            });
+            
+            // Comparable property markers (numbered)
+            comparableProperties.forEach(function(property) {
+                const marker = new google.maps.Marker({
+                    position: { lat: property.lat, lng: property.lng },
+                    map: map,
+                    title: property.address,
+                    label: {
+                        text: property.id.toString(),
+                        color: 'white',
+                        fontWeight: 'bold'
+                    },
+                    icon: {
+                        url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+                    }
+                });
+                
+                const infoWindow = new google.maps.InfoWindow({
+                    content: `
+                        <div style="padding: 10px;">
+                            <h4>${property.address}</h4>
+                            <p>${property.city} ${property.zip}</p>
+                            <p>${property.beds} bed, ${property.baths} bath</p>
+                            <p>${property.sqft} sq ft • Built ${property.year_built}</p>
+                        </div>
+                    `
+                });
+                
+                marker.addListener('click', function() {
+                    infoWindow.open(map, marker);
+                });
+            });
+        }
+        
+        // Initialize map when page loads
+        window.onload = initComparableMap;
+    </script>
+</body>
+</html>
+    ''', 
+    property_data=property_data, 
+    comparable_properties=comparable_properties,
+    google_maps_api_key=GOOGLE_MAPS_API_KEY)
+
+@app.route('/get-started')
+def get_started():
+    return render_template_string('''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Get Started - BlueDwarf</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        /* Header Navigation */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 30px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            text-decoration: none;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .nav-center {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .nav-link {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .nav-right {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .btn-login {
+            background: rgba(139, 92, 246, 0.9);
+            color: white;
+        }
+        
+        /* Registration Form */
+        .registration-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: calc(100vh - 80px);
+            padding: 20px;
+        }
+        
+        .registration-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+        }
+        
+        .registration-title {
+            text-align: center;
+            color: #333;
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .required {
+            color: #ef4444;
+        }
+        
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .register-btn {
+            width: 100%;
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+        
+        .register-btn:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+        
+        .login-link {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+        }
+        
+        .login-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .login-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header Navigation -->
+    <header class="header">
+        <a href="/" class="logo">
+            🏠 BlueDwarf
+        </a>
+        
+        <nav class="nav-center">
+            <a href="/about" class="nav-link">About</a>
+            <a href="/contact" class="nav-link">Contact</a>
+        </nav>
+        
+        <div class="nav-right">
+            <a href="/login" class="btn btn-login">Login</a>
+        </div>
+    </header>
+    
+    <!-- Registration Form -->
+    <div class="registration-container">
+        <div class="registration-card">
+            <h1 class="registration-title">Professional Registration</h1>
+            
+            <form action="/register-step-2" method="POST">
+                <div class="form-group">
+                    <label class="form-label">Full Name <span class="required">*</span></label>
+                    <input type="text" name="full_name" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Phone <span class="required">*</span></label>
+                    <input type="tel" name="phone" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Email <span class="required">*</span></label>
+                    <input type="email" name="email" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Business Address <span class="required">*</span></label>
+                    <input type="text" name="business_address" class="form-input" placeholder="123 Main St, City, State, ZIP" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">License Number</label>
+                    <input type="text" name="license_number" class="form-input" placeholder="Optional">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Domain Name</label>
+                    <input type="text" name="domain_name" class="form-input" placeholder="yourcompany.com">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Profession <span class="required">*</span></label>
+                    <select name="profession" class="form-select" required>
+                        <option value="">Select profession</option>
+                        <option value="Real Estate Agent">Real Estate Agent</option>
+                        <option value="Mortgage Lender">Mortgage Lender</option>
+                        <option value="Real Estate Attorney">Real Estate Attorney</option>
+                        <option value="Property Inspector">Property Inspector</option>
+                        <option value="Insurance Agent">Insurance Agent</option>
+                        <option value="Property Manager">Property Manager</option>
+                        <option value="General Contractor">General Contractor</option>
+                        <option value="Property Appraiser">Property Appraiser</option>
+                        <option value="Title Company">Title Company</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Service ZIP Codes <span class="required">*</span></label>
+                    <textarea name="service_zip_codes" class="form-textarea" placeholder="95628, 95814, 95630" required></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Password <span class="required">*</span></label>
+                    <input type="password" name="password" class="form-input" required>
+                </div>
+                
+                <button type="submit" class="register-btn">Continue to License Verification</button>
+            </form>
+            
+            <div class="login-link">
+                Already have an account? <a href="/login">Login here</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+    ''')
+
+@app.route('/register-step-2', methods=['POST'])
+def register_step_2():
+    # Store registration data in session
+    session['registration_data'] = {
+        'full_name': request.form.get('full_name'),
+        'phone': request.form.get('phone'),
+        'email': request.form.get('email'),
+        'business_address': request.form.get('business_address'),
+        'license_number': request.form.get('license_number'),
+        'domain_name': request.form.get('domain_name'),
+        'profession': request.form.get('profession'),
+        'service_zip_codes': request.form.get('service_zip_codes'),
+        'password': request.form.get('password')
+    }
+    
+    # Redirect to verification page (step 2)
+    return redirect(url_for('verify_license'))
 
 @app.route('/verify')
 def verify_license():
@@ -1019,10 +1791,6 @@ def verify_license():
             font-weight: 500;
         }
         
-        .nav-link:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-        
         .nav-right {
             display: flex;
             gap: 10px;
@@ -1048,199 +1816,273 @@ def verify_license():
             color: white;
         }
         
-        /* Main Content */
-        .main-content {
+        /* Verification Container */
+        .verification-container {
             display: flex;
-            align-items: center;
             justify-content: center;
-            min-height: calc(100vh - 140px);
-            padding: 40px 20px;
+            align-items: center;
+            min-height: calc(100vh - 80px);
+            padding: 20px;
         }
         
         .verification-card {
             background: rgba(255, 255, 255, 0.95);
             border-radius: 20px;
             padding: 40px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
             max-width: 600px;
             width: 100%;
-        }
-        
-        .header-section {
-            text-align: center;
-            margin-bottom: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
         }
         
         .verification-title {
+            text-align: center;
             color: #333;
             font-size: 2rem;
             font-weight: 700;
             margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
         }
         
         .verification-subtitle {
+            text-align: center;
             color: #666;
-            font-size: 1.1rem;
-            line-height: 1.5;
-        }
-        
-        /* Security Notice */
-        .security-notice {
-            background: #f0f9ff;
-            border: 1px solid #0ea5e9;
-            border-radius: 12px;
-            padding: 20px;
             margin-bottom: 30px;
         }
         
-        .security-title {
-            color: #0ea5e9;
-            font-weight: 600;
-            margin-bottom: 10px;
+        /* Progress Steps */
+        .progress-steps {
             display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .security-text {
-            color: #374151;
-            line-height: 1.5;
-            font-size: 0.95rem;
-        }
-        
-        /* Process Steps */
-        .process-steps {
+            justify-content: space-between;
             margin-bottom: 40px;
+            position: relative;
+        }
+        
+        .progress-steps::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #e5e7eb;
+            z-index: 1;
         }
         
         .step {
             display: flex;
-            align-items: flex-start;
-            gap: 15px;
-            margin-bottom: 20px;
-            padding: 15px;
-            border-radius: 10px;
-            background: #f9fafb;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            z-index: 2;
         }
         
-        .step-number {
-            background: #667eea;
-            color: white;
-            width: 30px;
-            height: 30px;
+        .step-circle {
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
+            background: #e5e7eb;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 600;
-            flex-shrink: 0;
-        }
-        
-        .step-content h3 {
-            color: #333;
-            font-size: 1.1rem;
-            margin-bottom: 5px;
-        }
-        
-        .step-content p {
+            font-weight: 700;
             color: #666;
-            font-size: 0.95rem;
+            margin-bottom: 8px;
         }
         
-        /* Form */
+        .step.active .step-circle {
+            background: #667eea;
+            color: white;
+        }
+        
+        .step.completed .step-circle {
+            background: #10b981;
+            color: white;
+        }
+        
+        .step-label {
+            font-size: 0.9rem;
+            color: #666;
+            text-align: center;
+        }
+        
+        /* Verification Form */
         .verification-form {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
+            display: none;
+        }
+        
+        .verification-form.active {
+            display: block;
         }
         
         .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+            margin-bottom: 20px;
         }
         
         .form-label {
-            font-weight: 600;
+            display: block;
             color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
         }
         
-        .form-input, .form-select {
+        .required {
+            color: #ef4444;
+        }
+        
+        .form-input {
+            width: 100%;
             padding: 12px 15px;
             border: 2px solid #e5e7eb;
-            border-radius: 8px;
+            border-radius: 10px;
             font-size: 1rem;
             transition: border-color 0.3s ease;
         }
         
-        .form-input:focus, .form-select:focus {
+        .form-input:focus {
             outline: none;
             border-color: #667eea;
         }
         
-        .btn-start {
-            background: #667eea;
-            color: white;
-            padding: 15px 30px;
-            border: none;
+        .file-upload {
+            border: 2px dashed #667eea;
             border-radius: 10px;
-            font-size: 1.1rem;
-            font-weight: 600;
+            padding: 30px;
+            text-align: center;
             cursor: pointer;
             transition: all 0.3s ease;
-            margin-top: 10px;
         }
         
-        .btn-start:hover {
-            background: #5a67d8;
-            transform: translateY(-2px);
+        .file-upload:hover {
+            background: rgba(102, 126, 234, 0.05);
         }
         
-        .back-link {
-            text-align: center;
-            margin-top: 20px;
-        }
-        
-        .back-link a {
+        .file-upload-icon {
+            font-size: 3rem;
             color: #667eea;
-            text-decoration: none;
-            font-weight: 500;
+            margin-bottom: 10px;
         }
         
-        .back-link a:hover {
-            text-decoration: underline;
+        .file-upload-text {
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 5px;
         }
         
-        /* Footer */
-        .footer {
-            text-align: center;
-            padding: 20px;
-            color: rgba(255, 255, 255, 0.8);
+        .file-upload-subtext {
+            color: #666;
             font-size: 0.9rem;
         }
         
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            .header {
-                flex-direction: column;
-                gap: 15px;
-                padding: 20px;
-            }
-            
-            .verification-card {
-                margin: 0 20px;
-                padding: 30px 20px;
-            }
-            
-            .verification-title {
-                font-size: 1.5rem;
-                flex-direction: column;
-                gap: 5px;
-            }
+        .camera-section {
+            text-align: center;
+            padding: 30px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+        }
+        
+        .camera-icon {
+            font-size: 4rem;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        
+        .camera-text {
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .camera-subtext {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+        }
+        
+        .camera-btn {
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .camera-btn:hover {
+            background: #5a67d8;
+        }
+        
+        .next-btn, .back-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px 5px;
+        }
+        
+        .next-btn {
+            background: #667eea;
+            color: white;
+        }
+        
+        .next-btn:hover {
+            background: #5a67d8;
+        }
+        
+        .back-btn {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .back-btn:hover {
+            background: #4b5563;
+        }
+        
+        .button-group {
+            text-align: center;
+            margin-top: 30px;
+        }
+        
+        .success-message {
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .success-icon {
+            font-size: 4rem;
+            color: #10b981;
+            margin-bottom: 20px;
+        }
+        
+        .success-title {
+            color: #333;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        
+        .success-text {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        
+        .dashboard-btn {
+            background: #10b981;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s ease;
+        }
+        
+        .dashboard-btn:hover {
+            background: #059669;
         }
     </style>
 </head>
@@ -1258,253 +2100,283 @@ def verify_license():
         
         <div class="nav-right">
             <a href="/login" class="btn btn-login">Login</a>
-            <a href="/register" class="btn btn-primary">Get Started</a>
+            <a href="/get-started" class="btn btn-primary">Get Started</a>
         </div>
     </header>
     
-    <!-- Main Content -->
-    <main class="main-content">
+    <!-- Verification Container -->
+    <div class="verification-container">
         <div class="verification-card">
-            <div class="header-section">
-                <h1 class="verification-title">
-                    🔒 License Verification
-                </h1>
-                <p class="verification-subtitle">
-                    Verify your professional license to join our trusted network of verified contractors and service providers.
-                </p>
-            </div>
+            <h1 class="verification-title">Professional License Verification</h1>
+            <p class="verification-subtitle">Complete your professional verification in 4 simple steps</p>
             
-            <!-- Security Notice -->
-            <div class="security-notice">
-                <div class="security-title">
-                    🛡️ Secure & Private
+            <!-- Progress Steps -->
+            <div class="progress-steps">
+                <div class="step active" id="step-1">
+                    <div class="step-circle">1</div>
+                    <div class="step-label">Personal Info</div>
                 </div>
-                <p class="security-text">
-                    Your documents are processed securely using enterprise-grade encryption. We use OCR technology and facial recognition to verify your identity and prevent fraud.
-                </p>
-            </div>
-            
-            <!-- Process Steps -->
-            <div class="process-steps">
-                <div class="step">
-                    <div class="step-number">1</div>
-                    <div class="step-content">
-                        <h3>Upload License</h3>
-                        <p>Upload a clear photo of your professional license</p>
-                    </div>
+                <div class="step" id="step-2">
+                    <div class="step-circle">2</div>
+                    <div class="step-label">Upload License</div>
                 </div>
-                
-                <div class="step">
-                    <div class="step-number">2</div>
-                    <div class="step-content">
-                        <h3>Take Selfie</h3>
-                        <p>Take a live selfie for identity verification</p>
-                    </div>
+                <div class="step" id="step-3">
+                    <div class="step-circle">3</div>
+                    <div class="step-label">Take Selfie</div>
                 </div>
-                
-                <div class="step">
-                    <div class="step-number">3</div>
-                    <div class="step-content">
-                        <h3>Automatic Verification</h3>
-                        <p>Our system verifies your license and identity</p>
-                    </div>
-                </div>
-                
-                <div class="step">
-                    <div class="step-number">4</div>
-                    <div class="step-content">
-                        <h3>Get Verified Badge</h3>
-                        <p>Receive your verified professional status</p>
-                    </div>
+                <div class="step" id="step-4">
+                    <div class="step-circle">4</div>
+                    <div class="step-label">Verification</div>
                 </div>
             </div>
             
-            <!-- Verification Form -->
-            <form class="verification-form" action="/start-verification" method="POST">
+            <!-- Step 1: Personal Information -->
+            <div class="verification-form active" id="form-1">
                 <div class="form-group">
-                    <label class="form-label">First Name *</label>
-                    <input type="text" name="first_name" class="form-input" required>
+                    <label class="form-label">First Name <span class="required">*</span></label>
+                    <input type="text" class="form-input" required>
                 </div>
                 
                 <div class="form-group">
-                    <label class="form-label">Last Name *</label>
-                    <input type="text" name="last_name" class="form-input" required>
+                    <label class="form-label">Last Name <span class="required">*</span></label>
+                    <input type="text" class="form-input" required>
                 </div>
                 
                 <div class="form-group">
-                    <label class="form-label">Email Address *</label>
-                    <input type="email" name="email" class="form-input" required>
+                    <label class="form-label">Email <span class="required">*</span></label>
+                    <input type="email" class="form-input" required>
                 </div>
                 
                 <div class="form-group">
-                    <label class="form-label">Profession *</label>
-                    <select name="profession" class="form-select" required>
-                        <option value="">Select your profession</option>
-                        <option value="general_contractor">General Contractor</option>
-                        <option value="electrician">Electrician</option>
-                        <option value="plumber">Plumber</option>
-                        <option value="hvac_technician">HVAC Technician</option>
-                        <option value="roofer">Roofer</option>
-                        <option value="flooring_contractor">Flooring Contractor</option>
-                        <option value="painter">Painter</option>
-                        <option value="landscaper">Landscaper</option>
-                        <option value="real_estate_agent">Real Estate Agent</option>
-                        <option value="property_inspector">Property Inspector</option>
-                        <option value="property_appraiser">Property Appraiser</option>
-                    </select>
+                    <label class="form-label">Phone Number <span class="required">*</span></label>
+                    <input type="tel" class="form-input" required>
                 </div>
                 
-                <div class="form-group">
-                    <label class="form-label">State *</label>
-                    <select name="state" class="form-select" required>
-                        <option value="">Select your state</option>
-                        <option value="california">California</option>
-                        <option value="texas">Texas</option>
-                        <option value="florida">Florida</option>
-                        <option value="new_york">New York</option>
-                        <option value="pennsylvania">Pennsylvania</option>
-                        <option value="illinois">Illinois</option>
-                        <option value="ohio">Ohio</option>
-                        <option value="georgia">Georgia</option>
-                        <option value="north_carolina">North Carolina</option>
-                        <option value="michigan">Michigan</option>
-                    </select>
+                <div class="button-group">
+                    <button class="next-btn" onclick="nextStep(1)">Next Step</button>
                 </div>
-                
-                <button type="submit" class="btn-start">
-                    🚀 Start Verification Process
-                </button>
-            </form>
+            </div>
             
-            <div class="back-link">
-                <a href="/">← Back to Home</a>
+            <!-- Step 2: Upload License -->
+            <div class="verification-form" id="form-2">
+                <div class="form-group">
+                    <label class="form-label">Professional License Document <span class="required">*</span></label>
+                    <div class="file-upload" onclick="document.getElementById('license-upload').click()">
+                        <div class="file-upload-icon">📄</div>
+                        <div class="file-upload-text">Upload License Document</div>
+                        <div class="file-upload-subtext">PDF, JPG, PNG (Max 16MB)</div>
+                    </div>
+                    <input type="file" id="license-upload" style="display: none;" accept=".pdf,.jpg,.jpeg,.png">
+                </div>
+                
+                <div class="button-group">
+                    <button class="back-btn" onclick="prevStep(2)">Back</button>
+                    <button class="next-btn" onclick="nextStep(2)">Next Step</button>
+                </div>
+            </div>
+            
+            <!-- Step 3: Take Selfie -->
+            <div class="verification-form" id="form-3">
+                <div class="camera-section">
+                    <div class="camera-icon">📸</div>
+                    <div class="camera-text">Take a Live Selfie</div>
+                    <div class="camera-subtext">We'll use facial recognition to verify your identity</div>
+                    <button class="camera-btn">Start Camera</button>
+                </div>
+                
+                <div class="button-group">
+                    <button class="back-btn" onclick="prevStep(3)">Back</button>
+                    <button class="next-btn" onclick="nextStep(3)">Next Step</button>
+                </div>
+            </div>
+            
+            <!-- Step 4: Verification Complete -->
+            <div class="verification-form" id="form-4">
+                <div class="success-message">
+                    <div class="success-icon">✅</div>
+                    <div class="success-title">Verification Complete!</div>
+                    <div class="success-text">Your professional license has been successfully verified. You can now access all professional features.</div>
+                    <a href="/dashboard" class="dashboard-btn">Go to Dashboard</a>
+                </div>
             </div>
         </div>
-    </main>
+    </div>
     
-    <!-- Footer -->
-    <footer class="footer">
-        © 2024 Elite Marketing Lab LLC. All rights reserved.<br>
-        support@bluedwarf.io
-    </footer>
+    <script>
+        let currentStep = 1;
+        
+        function nextStep(step) {
+            if (step < 4) {
+                // Hide current form
+                document.getElementById(`form-${step}`).classList.remove('active');
+                document.getElementById(`step-${step}`).classList.add('completed');
+                document.getElementById(`step-${step}`).classList.remove('active');
+                
+                // Show next form
+                currentStep = step + 1;
+                document.getElementById(`form-${currentStep}`).classList.add('active');
+                document.getElementById(`step-${currentStep}`).classList.add('active');
+            }
+        }
+        
+        function prevStep(step) {
+            if (step > 1) {
+                // Hide current form
+                document.getElementById(`form-${step}`).classList.remove('active');
+                document.getElementById(`step-${step}`).classList.remove('active');
+                
+                // Show previous form
+                currentStep = step - 1;
+                document.getElementById(`form-${currentStep}`).classList.add('active');
+                document.getElementById(`step-${currentStep}`).classList.add('active');
+                document.getElementById(`step-${currentStep}`).classList.remove('completed');
+            }
+        }
+    </script>
 </body>
 </html>
     ''')
 
-# Additional routes for other pages
-@app.route('/about')
-def about():
-    return render_template_string('<h1>About BlueDwarf</h1><p>Coming soon...</p>')
-
-@app.route('/contact')
-def contact():
-    return render_template_string('<h1>Contact Us</h1><p>Coming soon...</p>')
-
 @app.route('/login')
 def login():
-    return render_template_string('<h1>Login</h1><p>Coming soon...</p>')
-
-@app.route('/register')
-def register():
-    return render_template_string('<h1>Professional Registration</h1><p>Coming soon...</p>')
-
-@app.route('/start-verification', methods=['POST'])
-def start_verification():
-    # Handle verification form submission
-    first_name = request.form.get('first_name')
-    last_name = request.form.get('last_name')
-    email = request.form.get('email')
-    profession = request.form.get('profession')
-    state = request.form.get('state')
-    
-    # Create Sumsub applicant
-    external_user_id = str(uuid.uuid4())
-    applicant = sumsub.create_applicant(
-        external_user_id=external_user_id,
-        first_name=first_name,
-        last_name=last_name,
-        email=email
-    )
-    
-    if applicant:
-        # Get access token for WebSDK
-        access_token = sumsub.get_access_token(applicant['id'])
-        if access_token:
-            # Store verification data in session
-            session['verification_data'] = {
-                'applicant_id': applicant['id'],
-                'access_token': access_token['token'],
-                'first_name': first_name,
-                'last_name': last_name,
-                'email': email,
-                'profession': profession,
-                'state': state
-            }
-            return redirect(url_for('verification_sdk'))
-    
-    return jsonify({'error': 'Failed to start verification process'}), 500
-
-@app.route('/verification-sdk')
-def verification_sdk():
-    verification_data = session.get('verification_data')
-    if not verification_data:
-        return redirect(url_for('verify_license'))
-    
     return render_template_string('''
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Professional Verification - BlueDwarf</title>
-    <script src="https://cdn.sumsub.com/websdk/2.0.0/websdk.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - BlueDwarf</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .login-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+        }
+        
+        .login-title {
+            text-align: center;
+            color: #333;
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .login-btn {
+            width: 100%;
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+        
+        .login-btn:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+        
+        .register-link {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+        }
+        
+        .register-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .back-link {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .back-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+    </style>
 </head>
 <body>
-    <div id="sumsub-websdk-container"></div>
-    
-    <script>
-        const accessToken = "{{ verification_data.access_token }}";
+    <div class="login-card">
+        <div class="back-link">
+            <a href="/">← Back to Home</a>
+        </div>
         
-        const websdk = snsWebSdk.init(accessToken, () => accessToken)
-            .withConf({
-                lang: 'en',
-                email: "{{ verification_data.email }}",
-                theme: 'dark'
-            })
-            .withOptions({
-                addViewportTag: false,
-                adaptIframeHeight: true
-            })
-            .on('idCheck.onStepCompleted', (payload) => {
-                console.log('Step completed:', payload);
-            })
-            .on('idCheck.onApplicantSubmitted', (payload) => {
-                console.log('Verification submitted:', payload);
-                window.location.href = '/verification-complete';
-            })
-            .build();
+        <h1 class="login-title">Login</h1>
         
-        websdk.render('#sumsub-websdk-container');
-    </script>
-</body>
-</html>
-    ''', verification_data=verification_data)
-
-@app.route('/verification-complete')
-def verification_complete():
-    return render_template_string('''
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Verification Complete - BlueDwarf</title>
-</head>
-<body>
-    <h1>🎉 Verification Submitted!</h1>
-    <p>Your professional license verification has been submitted successfully.</p>
-    <p>You will receive an email notification once the verification is complete.</p>
-    <a href="/">Return to Home</a>
+        <form>
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <input type="email" class="form-input" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" class="form-input" required>
+            </div>
+            
+            <button type="submit" class="login-btn">Login</button>
+        </form>
+        
+        <div class="register-link">
+            Don't have an account? <a href="/get-started">Get Started</a>
+        </div>
+    </div>
 </body>
 </html>
     ''')
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True)
 
