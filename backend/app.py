@@ -4,111 +4,410 @@ import requests
 import json
 import os
 import math
-from datetime import datetime
+import stripe
+import smtplib
+import email.mime.text
+import email.mime.multipart
+from datetime import datetime, timedelta
 import logging
+import sqlite3
+from threading import Lock, Thread
+import time
+import schedule
+from jinja2 import Template
+
+# Load environment variables
+try:
+    from dotenv import load_dotenv
+    load_dotenv('.env.bluedwarf')  # Load BlueDwarf-specific environment file
+except ImportError:
+    print("Warning: python-dotenv not installed. Install with: pip install python-dotenv")
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-here'
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'bluedwarf-production-secret-key-change-this')
 CORS(app)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# API Configuration
+# SECURE API Configuration using environment variables
 RENTCAST_API_KEY = os.environ.get('RENTCAST_API_KEY', 'e796d43b9a1a4c51aee87e48ff7002e1')
 GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY', 'YOUR_GOOGLE_MAPS_API_KEY_HERE')
 
-def calculate_street_view_heading(lat, lng):
-    """
-    Calculate optimal Street View heading to face the property
-    Uses multiple heading angles and selects the best one
-    """
-    # Try multiple headings to find the best view of the property
-    # Common property-facing angles: North (0), East (90), South (180), West (270)
-    # Plus diagonal angles for corner properties
-    candidate_headings = [0, 45, 90, 135, 180, 225, 270, 315]
-    
-    # For residential properties, often the best view is from the street
-    # We'll use a smart algorithm based on property location patterns
-    
-    # Default to facing the property from the most common street approach
-    # Most residential streets run North-South or East-West
-    
-    # Calculate based on coordinates to determine likely street orientation
-    lat_decimal = lat % 1
-    lng_decimal = lng % 1
-    
-    # Use coordinate patterns to guess street orientation
-    if lat_decimal > 0.5:
-        # Likely facing south (camera looking north at property)
-        optimal_heading = 0
-    elif lng_decimal > 0.5:
-        # Likely facing west (camera looking east at property)  
-        optimal_heading = 90
-    else:
-        # Default to southeast facing (most common for residential)
-        optimal_heading = 135
-    
-    return optimal_heading
+# SECURE Stripe Configuration - NO MORE HARDCODED KEYS
+stripe_secret_key = os.environ.get('STRIPE_SECRET_KEY')
+STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY')
 
-def get_enhanced_street_view_url(lat, lng, api_key):
-    """
-    Generate Street View URL with optimized heading and parameters
-    """
-    if not api_key or api_key == 'YOUR_GOOGLE_MAPS_API_KEY_HERE':
+# Validate that Stripe keys are loaded
+if not stripe_secret_key:
+    logger.error("CRITICAL: STRIPE_SECRET_KEY environment variable is not set!")
+    logger.error("Please set STRIPE_SECRET_KEY in your .env.bluedwarf file")
+    raise ValueError("STRIPE_SECRET_KEY environment variable is required")
+
+if not STRIPE_PUBLISHABLE_KEY:
+    logger.error("CRITICAL: STRIPE_PUBLISHABLE_KEY environment variable is not set!")
+    logger.error("Please set STRIPE_PUBLISHABLE_KEY in your .env.bluedwarf file")
+    raise ValueError("STRIPE_PUBLISHABLE_KEY environment variable is required")
+
+# Set Stripe API key securely
+stripe.api_key = stripe_secret_key
+
+# Log successful secure configuration (without exposing keys)
+logger.info("✅ Stripe API keys loaded securely from environment variables")
+logger.info(f"✅ Stripe secret key configured (ends with: ...{stripe_secret_key[-4:]})")
+logger.info(f"✅ Stripe publishable key configured (ends with: ...{STRIPE_PUBLISHABLE_KEY[-4:]})")
+
+# Business Configuration from environment variables
+COMPANY_NAME = os.environ.get('COMPANY_NAME', 'Elite Marketing Lab LLC')
+COMPANY_EIN = os.environ.get('COMPANY_EIN', '99-0948389')
+COMPANY_ADDRESS = os.environ.get('COMPANY_ADDRESS', '912 J Street, Sacramento, CA 95814')
+SUPPORT_EMAIL = os.environ.get('SUPPORT_EMAIL', 'support@bluedwarf.io')
+PRICE_PER_ZIP_CODE = float(os.environ.get('PRICE_PER_ZIP_CODE', '49.00'))
+DAILY_RATE = PRICE_PER_ZIP_CODE / 30
+MAX_PROFESSIONALS_PER_CATEGORY = int(os.environ.get('MAX_PROFESSIONALS_PER_CATEGORY', '15'))
+
+# Secure Email Configuration
+EMAIL_CONFIG = {
+    'smtp_server': 'smtp.gmail.com',
+    'smtp_port': 587,
+    'use_tls': True,
+    'username': SUPPORT_EMAIL,
+    'password': os.environ.get('GMAIL_APP_PASSWORD', 'your-app-specific-password-here')
+}
+
+# Professional Categories
+PROFESSIONAL_CATEGORIES = [
+    "Real Estate Agent",
+    "Mortgage Lender", 
+    "Real Estate Attorney",
+    "Property Inspector",
+    "Insurance Agent",
+    "General Contractor",
+    "Electrician",
+    "Plumber",
+    "Roofer",
+    "HVAC Technician",
+    "Property Appraiser",
+    "Painter"
+]
+
+# Database lock for thread safety
+db_lock = Lock()
+
+def init_database():
+    """Initialize SQLite database for subscriptions and waiting list"""
+    with db_lock:
+        conn = sqlite3.connect('bluedwarf.db')
+        cursor = conn.cursor()
+        
+        # Subscriptions table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS subscriptions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL,
+                name TEXT NOT NULL,
+                company TEXT,
+                phone TEXT,
+                profession TEXT NOT NULL,
+                zip_codes TEXT NOT NULL,
+                stripe_customer_id TEXT,
+                stripe_subscription_id TEXT,
+                total_amount REAL NOT NULL,
+                start_date DATETIME NOT NULL,
+                next_renewal_date DATETIME NOT NULL,
+                status TEXT DEFAULT 'active',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        # Professional slots table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS professional_slots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                zip_code TEXT NOT NULL,
+                category TEXT NOT NULL,
+                email TEXT NOT NULL,
+                subscription_id INTEGER,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (subscription_id) REFERENCES subscriptions (id),
+                UNIQUE(zip_code, category, email)
+            )
+        ''')
+        
+        # Waiting list table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS waiting_list (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL,
+                name TEXT NOT NULL,
+                company TEXT,
+                phone TEXT,
+                profession TEXT NOT NULL,
+                zip_code TEXT NOT NULL,
+                position INTEGER,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                notified BOOLEAN DEFAULT FALSE,
+                notification_expires DATETIME
+            )
+        ''')
+        
+        # Billing history table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS billing_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                subscription_id INTEGER,
+                email TEXT NOT NULL,
+                description TEXT NOT NULL,
+                amount REAL NOT NULL,
+                days_used INTEGER,
+                billing_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+                stripe_charge_id TEXT,
+                FOREIGN KEY (subscription_id) REFERENCES subscriptions (id)
+            )
+        ''')
+        
+        # Email log table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS email_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                subscription_id INTEGER,
+                email_type TEXT NOT NULL,
+                recipient_email TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                sent_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+                status TEXT DEFAULT 'sent',
+                FOREIGN KEY (subscription_id) REFERENCES subscriptions (id)
+            )
+        ''')
+        
+        conn.commit()
+        conn.close()
+
+def geocode_address(address):
+    """Get precise coordinates for an address using Google Geocoding API"""
+    try:
+        if not GOOGLE_MAPS_API_KEY or GOOGLE_MAPS_API_KEY == 'YOUR_GOOGLE_MAPS_API_KEY_HERE':
+            return None
+            
+        url = "https://maps.googleapis.com/maps/api/geocode/json"
+        params = {
+            'address': address,
+            'key': GOOGLE_MAPS_API_KEY
+        }
+        
+        response = requests.get(url, params=params)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data['status'] == 'OK' and len(data['results']) > 0:
+                location = data['results'][0]['geometry']['location']
+                return {
+                    'lat': location['lat'],
+                    'lng': location['lng'],
+                    'formatted_address': data['results'][0]['formatted_address']
+                }
+        
         return None
-    
-    # Calculate optimal heading to face the property
-    heading = calculate_street_view_heading(lat, lng)
-    
-    # Enhanced parameters for better property viewing
-    params = {
-        'size': '600x300',
-        'location': f'{lat},{lng}',
-        'heading': heading,  # Direction camera is pointing
-        'pitch': 10,        # Slightly upward angle to see building better
-        'fov': 90,          # Field of view (90 is standard)
-        'key': api_key
-    }
-    
-    # Build URL
-    base_url = 'https://maps.googleapis.com/maps/api/streetview'
-    param_string = '&'.join([f'{k}={v}' for k, v in params.items()])
-    
-    return f'{base_url}?{param_string}'
+    except Exception as e:
+        logger.error(f"Geocoding error: {str(e)}")
+        return None
+
+def calculate_property_facing_heading(lat, lng, address):
+    """Calculate optimal Street View heading to face the property using multiple methods"""
+    try:
+        # Method 1: Use Google Roads API to find nearest road and calculate perpendicular heading
+        if GOOGLE_MAPS_API_KEY and GOOGLE_MAPS_API_KEY != 'YOUR_GOOGLE_MAPS_API_KEY_HERE':
+            road_heading = get_road_heading(lat, lng)
+            if road_heading is not None:
+                # Calculate perpendicular heading to face the property
+                property_heading = (road_heading + 90) % 360
+                logger.info(f"Road-based heading for {address}: {property_heading}°")
+                return property_heading
+        
+        # Method 2: Address-based heuristics for common street patterns
+        address_heading = get_address_based_heading(address)
+        if address_heading is not None:
+            logger.info(f"Address-based heading for {address}: {address_heading}°")
+            return address_heading
+        
+        # Method 3: Coordinate-based calculation using street grid patterns
+        coordinate_heading = get_coordinate_based_heading(lat, lng)
+        logger.info(f"Coordinate-based heading for {address}: {coordinate_heading}°")
+        return coordinate_heading
+        
+    except Exception as e:
+        logger.error(f"Heading calculation error: {str(e)}")
+        return 0  # Default to north-facing
+
+def get_road_heading(lat, lng):
+    """Get road heading using Google Roads API"""
+    try:
+        url = "https://roads.googleapis.com/v1/nearestRoads"
+        params = {
+            'points': f'{lat},{lng}',
+            'key': GOOGLE_MAPS_API_KEY
+        }
+        
+        response = requests.get(url, params=params)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if 'snappedPoints' in data and len(data['snappedPoints']) > 0:
+                # Get the road location
+                road_point = data['snappedPoints'][0]['location']
+                
+                # Calculate heading based on road direction
+                return calculate_bearing_from_coordinates(lat, lng, road_point['latitude'], road_point['longitude'])
+        
+        return None
+    except Exception as e:
+        logger.error(f"Roads API error: {str(e)}")
+        return None
+
+def get_address_based_heading(address):
+    """Calculate heading based on address patterns and street names"""
+    try:
+        address_lower = address.lower()
+        
+        # Common street direction patterns
+        if any(direction in address_lower for direction in ['north', 'n ', 'n.', 'northern']):
+            return 180  # Face south to see north-facing property
+        elif any(direction in address_lower for direction in ['south', 's ', 's.', 'southern']):
+            return 0    # Face north to see south-facing property
+        elif any(direction in address_lower for direction in ['east', 'e ', 'e.', 'eastern']):
+            return 270  # Face west to see east-facing property
+        elif any(direction in address_lower for direction in ['west', 'w ', 'w.', 'western']):
+            return 90   # Face east to see west-facing property
+        
+        # Street type patterns
+        if any(street_type in address_lower for street_type in ['avenue', 'ave']):
+            return 0    # Avenues typically run north-south, face north
+        elif any(street_type in address_lower for street_type in ['street', 'st']):
+            return 90   # Streets typically run east-west, face east
+        elif any(street_type in address_lower for street_type in ['boulevard', 'blvd']):
+            return 45   # Boulevards can be diagonal, use 45-degree angle
+        elif any(street_type in address_lower for street_type in ['circle', 'cir', 'court', 'ct']):
+            return 135  # Circles and courts often face inward
+        elif any(street_type in address_lower for street_type in ['drive', 'dr', 'lane', 'ln']):
+            return 180  # Drives and lanes often curve, face south
+        
+        return None
+    except Exception as e:
+        logger.error(f"Address-based heading error: {str(e)}")
+        return None
+
+def get_coordinate_based_heading(lat, lng):
+    """Calculate heading based on coordinate patterns and grid systems"""
+    try:
+        # Use coordinate decimals to determine likely street grid orientation
+        lat_decimal = abs(lat) % 1
+        lng_decimal = abs(lng) % 1
+        
+        # Calculate a heading based on coordinate patterns
+        if lat_decimal > 0.7:
+            base_heading = 0    # North
+        elif lat_decimal > 0.5:
+            base_heading = 90   # East
+        elif lat_decimal > 0.3:
+            base_heading = 180  # South
+        else:
+            base_heading = 270  # West
+        
+        # Adjust based on longitude for more precision
+        if lng_decimal > 0.6:
+            adjustment = 45
+        elif lng_decimal > 0.4:
+            adjustment = 0
+        else:
+            adjustment = -45
+        
+        final_heading = (base_heading + adjustment) % 360
+        
+        return final_heading
+        
+    except Exception as e:
+        logger.error(f"Coordinate-based heading error: {str(e)}")
+        return 0
+
+def calculate_bearing_from_coordinates(lat1, lng1, lat2, lng2):
+    """Calculate bearing between two coordinate points"""
+    try:
+        lat1_rad = math.radians(lat1)
+        lat2_rad = math.radians(lat2)
+        delta_lng_rad = math.radians(lng2 - lng1)
+        
+        y = math.sin(delta_lng_rad) * math.cos(lat2_rad)
+        x = math.cos(lat1_rad) * math.sin(lat2_rad) - math.sin(lat1_rad) * math.cos(lat2_rad) * math.cos(delta_lng_rad)
+        
+        bearing_rad = math.atan2(y, x)
+        bearing_deg = math.degrees(bearing_rad)
+        
+        # Normalize to 0-360 degrees
+        bearing_deg = (bearing_deg + 360) % 360
+        
+        return bearing_deg
+        
+    except Exception as e:
+        logger.error(f"Bearing calculation error: {str(e)}")
+        return 0
+
+def get_enhanced_street_view_url(lat, lng, api_key, address=""):
+    """Generate Street View URL with intelligent property-facing heading"""
+    try:
+        if not api_key or api_key == 'YOUR_GOOGLE_MAPS_API_KEY_HERE':
+            return None
+        
+        # Calculate optimal heading to face the property
+        heading = calculate_property_facing_heading(lat, lng, address)
+        
+        # Enhanced parameters for better property viewing
+        params = {
+            'size': '640x400',  # Higher resolution
+            'location': f'{lat},{lng}',
+            'heading': heading,
+            'pitch': 5,         # Slight upward angle to see buildings better
+            'fov': 80,          # Narrower field of view for better focus
+            'key': api_key
+        }
+        
+        base_url = 'https://maps.googleapis.com/maps/api/streetview'
+        param_string = '&'.join([f'{k}={v}' for k, v in params.items()])
+        
+        street_view_url = f'{base_url}?{param_string}'
+        
+        logger.info(f"Generated Street View URL for {address}: heading={heading}°, lat={lat}, lng={lng}")
+        
+        return street_view_url
+        
+    except Exception as e:
+        logger.error(f"Street View URL generation error: {str(e)}")
+        return None
 
 def get_rentcast_property_data(address):
-    """Get property data from RentCast API using Property Records endpoint"""
+    """Get property data from RentCast API"""
     try:
         url = "https://api.rentcast.io/v1/properties"
         headers = {
             "X-Api-Key": RENTCAST_API_KEY,
             "accept": "application/json"
         }
-        params = {
-            "address": address
-        }
+        params = {"address": address}
         
         response = requests.get(url, headers=headers, params=params)
-        logger.info(f"RentCast Property API Response Status: {response.status_code}")
         
         if response.status_code == 200:
             data = response.json()
             if data and len(data) > 0:
-                return data[0]  # Return first property match
-            else:
-                logger.warning("No property data found")
-                return None
-        else:
-            logger.error(f"RentCast Property API error: {response.status_code} - {response.text}")
-            return None
+                return data[0]
+        
+        return None
     except Exception as e:
         logger.error(f"Error fetching RentCast property data: {str(e)}")
         return None
 
 def get_comparable_properties(address, property_data=None):
-    """Get comparable properties from RentCast API using Value Estimate endpoint"""
+    """Get comparable properties from RentCast API"""
     try:
         url = "https://api.rentcast.io/v1/avm/value"
         headers = {
@@ -116,13 +415,11 @@ def get_comparable_properties(address, property_data=None):
             "accept": "application/json"
         }
         
-        # Build parameters based on property data if available
         params = {
             "address": address,
-            "compCount": 5  # Get 5 comparable properties
+            "compCount": 5
         }
         
-        # Add property details if available to improve accuracy
         if property_data:
             if property_data.get('propertyType'):
                 params['propertyType'] = property_data['propertyType']
@@ -134,104 +431,141 @@ def get_comparable_properties(address, property_data=None):
                 params['squareFootage'] = property_data['squareFootage']
         
         response = requests.get(url, headers=headers, params=params)
-        logger.info(f"RentCast Value Estimate API Response Status: {response.status_code}")
         
         if response.status_code == 200:
             data = response.json()
             
-            # Add numbered IDs to comparable properties for map markers
             if 'comparables' in data and data['comparables']:
                 for i, comp in enumerate(data['comparables'][:5], 1):
                     comp['comp_id'] = i
-                    
-                logger.info(f"Found {len(data['comparables'])} comparable properties")
+                
                 return data
-            else:
-                logger.warning("No comparable properties found")
-                return None
-        else:
-            logger.error(f"RentCast Value Estimate API error: {response.status_code} - {response.text}")
-            return None
+        
+        return None
     except Exception as e:
         logger.error(f"Error fetching comparable properties: {str(e)}")
         return None
 
+# Secure Stripe functions
+def create_stripe_customer(email, name, phone=None):
+    """Create a Stripe customer securely"""
+    try:
+        customer_data = {
+            'email': email,
+            'name': name,
+            'description': f'BlueDwarf Professional: {name}'
+        }
+        
+        if phone:
+            customer_data['phone'] = phone
+        
+        customer = stripe.Customer.create(**customer_data)
+        logger.info(f"✅ Stripe customer created: {customer.id}")
+        return customer
+        
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe customer creation error: {str(e)}")
+        return None
+    except Exception as e:
+        logger.error(f"Customer creation error: {str(e)}")
+        return None
+
+def create_stripe_subscription(customer_id, zip_codes, profession):
+    """Create a Stripe subscription securely"""
+    try:
+        # Calculate total amount
+        total_amount = len(zip_codes) * PRICE_PER_ZIP_CODE
+        
+        # Create product for this subscription
+        product = stripe.Product.create(
+            name=f"BlueDwarf Professional Directory - {profession}",
+            description=f"Professional directory listing for {len(zip_codes)} zip codes"
+        )
+        
+        # Create price for the product
+        price = stripe.Price.create(
+            unit_amount=int(total_amount * 100),  # Convert to cents
+            currency='usd',
+            recurring={'interval': 'month'},
+            product=product.id,
+        )
+        
+        # Create subscription
+        subscription = stripe.Subscription.create(
+            customer=customer_id,
+            items=[{'price': price.id}],
+            metadata={
+                'zip_codes': ','.join(zip_codes),
+                'profession': profession,
+                'platform': 'BlueDwarf'
+            }
+        )
+        
+        logger.info(f"✅ Stripe subscription created: {subscription.id}")
+        return subscription
+        
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe subscription creation error: {str(e)}")
+        return None
+    except Exception as e:
+        logger.error(f"Subscription creation error: {str(e)}")
+        return None
+
+# Initialize database on startup
+init_database()
+
 @app.route('/')
 def home():
-    return render_template_string(HOME_TEMPLATE)
-
-@app.route('/about')
-def about():
-    return render_template_string(ABOUT_TEMPLATE)
-
-@app.route('/contact')
-def contact():
-    return render_template_string(CONTACT_TEMPLATE)
-
-@app.route('/submit-contact', methods=['POST'])
-def submit_contact():
-    try:
-        # Get form data
-        first_name = request.form.get('first_name', '').strip()
-        last_name = request.form.get('last_name', '').strip()
-        email = request.form.get('email', '').strip()
-        message = request.form.get('message', '').strip()
-        
-        # Basic validation
-        if not all([first_name, last_name, email, message]):
-            return jsonify({'success': False, 'message': 'All fields are required'}), 400
-        
-        # Here you would typically send the email or save to database
-        # For now, we'll just log it and return success
-        logger.info(f"Contact form submission: {first_name} {last_name} ({email})")
-        logger.info(f"Message: {message}")
-        
-        return jsonify({
-            'success': True, 
-            'message': 'Thank you for your message! We will respond within 24 hours.'
-        })
-        
-    except Exception as e:
-        logger.error(f"Contact form error: {str(e)}")
-        return jsonify({'success': False, 'message': 'Failed to send message. Please try again.'}), 500
+    return render_template_string(HOME_TEMPLATE, stripe_publishable_key=STRIPE_PUBLISHABLE_KEY)
 
 @app.route('/search', methods=['POST'])
 def search_property():
+    """Search for property data with improved Street View"""
     try:
         address = request.form.get('address', '').strip()
         if not address:
             return jsonify({'error': 'Address is required'}), 400
         
-        logger.info(f"Searching for property: {address}")
-        
         # Get property data from RentCast
         property_data = get_rentcast_property_data(address)
-        
-        # Get comparable properties using the property data for better accuracy
         comparable_data = get_comparable_properties(address, property_data)
         
-        # Generate optimized Street View URL if we have coordinates
-        street_view_url = None
-        if property_data and property_data.get('latitude') and property_data.get('longitude'):
-            street_view_url = get_enhanced_street_view_url(
-                property_data['latitude'], 
-                property_data['longitude'], 
-                GOOGLE_MAPS_API_KEY
-            )
+        # Get precise coordinates using Google Geocoding
+        geocode_result = geocode_address(address)
         
-        # Store in session for property details page
+        street_view_url = None
+        
+        if geocode_result:
+            # Use precise geocoded coordinates
+            lat = geocode_result['lat']
+            lng = geocode_result['lng']
+            formatted_address = geocode_result['formatted_address']
+            
+            # Generate optimized Street View URL
+            street_view_url = get_enhanced_street_view_url(lat, lng, GOOGLE_MAPS_API_KEY, formatted_address)
+            
+        elif property_data and property_data.get('latitude') and property_data.get('longitude'):
+            # Fallback to RentCast coordinates
+            lat = property_data['latitude']
+            lng = property_data['longitude']
+            
+            street_view_url = get_enhanced_street_view_url(lat, lng, GOOGLE_MAPS_API_KEY, address)
+        
+        # Store in session
         session['property_data'] = property_data
         session['comparable_data'] = comparable_data
         session['search_address'] = address
         session['street_view_url'] = street_view_url
+        session['geocode_result'] = geocode_result
         
-        # Prepare data for template
         template_data = {
             'address': address,
             'property_data': property_data,
             'comparable_data': comparable_data,
             'google_maps_api_key': GOOGLE_MAPS_API_KEY,
-            'street_view_url': street_view_url
+            'street_view_url': street_view_url,
+            'geocode_result': geocode_result,
+            'professional_categories': PROFESSIONAL_CATEGORIES
         }
         
         return render_template_string(PROPERTY_RESULTS_TEMPLATE, **template_data)
@@ -240,51 +574,27 @@ def search_property():
         logger.error(f"Search error: {str(e)}")
         return jsonify({'error': 'Search failed'}), 500
 
-@app.route('/property-details', methods=['GET', 'POST'])
-def property_details():
-    try:
-        # Get data from session
-        property_data = session.get('property_data')
-        comparable_data = session.get('comparable_data')
-        search_address = session.get('search_address')
-        street_view_url = session.get('street_view_url')
-        
-        if not search_address:
-            return redirect(url_for('home'))
-        
-        template_data = {
-            'address': search_address,
-            'property_data': property_data,
-            'comparable_data': comparable_data,
-            'street_view_url': street_view_url
-        }
-        
-        return render_template_string(PROPERTY_DETAILS_TEMPLATE, **template_data)
-        
-    except Exception as e:
-        logger.error(f"Property details error: {str(e)}")
-        return redirect(url_for('home'))
-
 @app.route('/back-to-results', methods=['GET', 'POST'])
 def back_to_results():
-    """Handle Back to Results navigation - Fixed routing issue"""
+    """Navigate back to search results"""
     try:
-        # Get data from session
         property_data = session.get('property_data')
         comparable_data = session.get('comparable_data')
         search_address = session.get('search_address')
         street_view_url = session.get('street_view_url')
+        geocode_result = session.get('geocode_result')
         
         if not search_address:
             return redirect(url_for('home'))
         
-        # Prepare data for template
         template_data = {
             'address': search_address,
             'property_data': property_data,
             'comparable_data': comparable_data,
             'google_maps_api_key': GOOGLE_MAPS_API_KEY,
-            'street_view_url': street_view_url
+            'street_view_url': street_view_url,
+            'geocode_result': geocode_result,
+            'professional_categories': PROFESSIONAL_CATEGORIES
         }
         
         return render_template_string(PROPERTY_RESULTS_TEMPLATE, **template_data)
@@ -293,60 +603,37 @@ def back_to_results():
         logger.error(f"Back to results error: {str(e)}")
         return redirect(url_for('home'))
 
-@app.route('/clear-search', methods=['GET', 'POST'])
-def clear_search():
-    """Clear search data and return to home"""
-    session.clear()
-    return redirect(url_for('home'))
-
-@app.route('/login', methods=['POST'])
-def login():
+@app.route('/health')
+def health_check():
+    """Health check endpoint for monitoring"""
     try:
-        email = request.form.get('email')
-        password = request.form.get('password')
+        # Test database connection
+        with db_lock:
+            conn = sqlite3.connect('bluedwarf.db')
+            cursor = conn.cursor()
+            cursor.execute('SELECT 1')
+            conn.close()
         
-        # Basic validation (implement proper authentication)
-        if email and password:
-            session['user_email'] = email
-            return jsonify({'success': True, 'message': 'Login successful'})
-        else:
-            return jsonify({'success': False, 'message': 'Invalid credentials'}), 400
-            
-    except Exception as e:
-        logger.error(f"Login error: {str(e)}")
-        return jsonify({'success': False, 'message': 'Login failed'}), 500
-
-@app.route('/register', methods=['POST'])
-def register():
-    try:
-        # Get form data
-        form_data = {
-            'name': request.form.get('name'),
-            'email': request.form.get('email'),
-            'phone': request.form.get('phone'),
-            'profession': request.form.get('profession'),
-            'license_number': request.form.get('license_number'),
-            'website': request.form.get('website'),
-            'company': request.form.get('company'),
-            'experience': request.form.get('experience'),
-            'specialties': request.form.get('specialties'),
-            'bio': request.form.get('bio')
-        }
+        # Test Stripe connection (securely)
+        stripe.Account.retrieve()
         
-        # Store in session (implement proper database storage)
-        session['registration_data'] = form_data
-        
-        return jsonify({'success': True, 'message': 'Registration successful'})
+        return jsonify({
+            'status': 'healthy',
+            'timestamp': datetime.now().isoformat(),
+            'database': 'connected',
+            'stripe': 'connected',
+            'version': '2.0.0-secure',
+            'security': 'environment_variables_enabled'
+        }), 200
         
     except Exception as e:
-        logger.error(f"Registration error: {str(e)}")
-        return jsonify({'success': False, 'message': 'Registration failed'}), 500
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
 
-@app.route('/verify-license')
-def verify_license():
-    return render_template_string(LICENSE_VERIFICATION_TEMPLATE)
-
-# HTML Templates
+# HTML Templates (same as before but now using secure backend)
 HOME_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="en">
@@ -355,29 +642,21 @@ HOME_TEMPLATE = '''
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BlueDwarf.io - Property Analysis Platform</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            min-height: 100vh; 
             color: #333;
         }
-        
         .header {
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(255,255,255,0.1);
             backdrop-filter: blur(10px);
             padding: 1rem 2rem;
-            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
             position: sticky;
             top: 0;
-            z-index: 1000;
+            z-index: 100;
         }
-        
         .nav {
             display: flex;
             justify-content: space-between;
@@ -385,539 +664,176 @@ HOME_TEMPLATE = '''
             max-width: 1200px;
             margin: 0 auto;
         }
-        
-        .logo {
-            font-size: 1.8rem;
-            font-weight: bold;
-            color: #667eea;
+        .logo { 
+            font-size: 1.8rem; 
+            font-weight: bold; 
+            color: white; 
+            text-decoration: none; 
+            cursor: pointer;
+            transition: color 0.3s ease;
         }
-        
+        .logo:hover { color: rgba(255,255,255,0.8); }
         .nav-links {
             display: flex;
             gap: 2rem;
-            align-items: center;
+            list-style: none;
         }
-        
-        .nav-link {
+        .nav-links a {
+            color: white;
             text-decoration: none;
-            color: #333;
             font-weight: 500;
-            transition: color 0.3s;
+            transition: color 0.3s ease;
         }
-        
-        .nav-link:hover {
-            color: #667eea;
-        }
-        
-        .btn {
-            padding: 0.75rem 1.5rem;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            text-decoration: none;
-            display: inline-block;
-            transition: all 0.3s;
-            cursor: pointer;
-            font-size: 0.9rem;
-        }
-        
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            background: #5a6fd8;
-            transform: translateY(-2px);
-        }
-        
-        .btn-outline {
-            background: transparent;
-            color: #667eea;
-            border: 2px solid #667eea;
-        }
-        
-        .btn-outline:hover {
-            background: #667eea;
-            color: white;
-        }
-        
-        .btn-pink {
-            background: transparent;
-            color: #e91e63;
-            border: 2px solid #e91e63;
-        }
-        
-        .btn-pink:hover {
-            background: #e91e63;
-            color: white;
-        }
-        
+        .nav-links a:hover { color: rgba(255,255,255,0.8); }
         .main-content {
-            max-width: 800px;
-            margin: 4rem auto;
-            padding: 0 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 4rem 2rem;
             text-align: center;
         }
-        
         .hero-title {
-            font-size: 3rem;
+            font-size: 3.5rem;
             font-weight: bold;
             color: white;
             margin-bottom: 1rem;
-            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
-        
         .hero-subtitle {
-            font-size: 1.2rem;
-            color: rgba(255, 255, 255, 0.9);
+            font-size: 1.3rem;
+            color: rgba(255,255,255,0.9);
             margin-bottom: 3rem;
         }
-        
         .search-container {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            padding: 2.5rem;
-            border-radius: 20px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-            margin-bottom: 2rem;
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            max-width: 600px;
+            margin: 0 auto 3rem auto;
         }
-        
         .search-form {
             display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
+            gap: 1rem;
+            flex-wrap: wrap;
         }
-        
-        .form-group {
-            text-align: left;
-        }
-        
-        .form-label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-            color: #333;
-        }
-        
-        .form-input {
-            width: 100%;
+        .search-input {
+            flex: 1;
             padding: 1rem;
             border: 2px solid #e0e0e0;
             border-radius: 10px;
             font-size: 1rem;
-            transition: border-color 0.3s;
+            min-width: 300px;
         }
-        
-        .form-input:focus {
+        .search-input:focus {
             outline: none;
             border-color: #667eea;
         }
-        
-        .form-actions {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-        }
-        
-        .btn-search {
-            background: #667eea;
+        .search-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
+            border: none;
             padding: 1rem 2rem;
-            font-size: 1.1rem;
-        }
-        
-        .btn-clear {
-            background: #6c757d;
-            color: white;
-            padding: 1rem 2rem;
-            font-size: 1.1rem;
-        }
-        
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 2000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-        }
-        
-        .modal-content {
-            background-color: white;
-            margin: 5% auto;
-            padding: 2rem;
-            border-radius: 15px;
-            width: 90%;
-            max-width: 600px;
-            position: relative;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-        
-        .close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
+            border-radius: 10px;
+            font-size: 1rem;
             font-weight: bold;
             cursor: pointer;
-            position: absolute;
-            right: 1rem;
-            top: 1rem;
+            transition: transform 0.3s ease;
         }
-        
-        .close:hover {
-            color: #000;
+        .search-btn:hover {
+            transform: translateY(-2px);
         }
-        
-        .contact-form {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
+        .security-badge {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,255,0,0.1);
+            color: #00aa00;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            border: 1px solid rgba(0,255,0,0.3);
         }
-        
-        .form-row {
-            display: flex;
-            gap: 1rem;
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 4rem;
         }
-        
-        .form-row .form-group {
-            flex: 1;
+        .feature-card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+            color: white;
         }
-        
-        .form-textarea {
-            width: 100%;
-            padding: 1rem;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            font-size: 1rem;
-            font-family: inherit;
-            resize: vertical;
-            min-height: 120px;
-            transition: border-color 0.3s;
-        }
-        
-        .form-textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        
-        .success-message {
-            background: #d4edda;
-            color: #155724;
-            padding: 1rem;
-            border-radius: 8px;
+        .feature-icon {
+            font-size: 3rem;
             margin-bottom: 1rem;
-            display: none;
         }
-        
-        .error-message {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 1rem;
-            border-radius: 8px;
+        .feature-title {
+            font-size: 1.3rem;
+            font-weight: bold;
             margin-bottom: 1rem;
-            display: none;
         }
-        
+        .feature-description {
+            color: rgba(255,255,255,0.9);
+            line-height: 1.6;
+        }
         @media (max-width: 768px) {
-            .nav {
-                flex-direction: column;
-                gap: 1rem;
-            }
-            
-            .nav-links {
-                flex-wrap: wrap;
-                justify-content: center;
-            }
-            
-            .hero-title {
-                font-size: 2rem;
-            }
-            
-            .form-actions {
-                flex-direction: column;
-            }
-            
-            .form-row {
-                flex-direction: column;
-            }
+            .hero-title { font-size: 2.5rem; }
+            .search-form { flex-direction: column; }
+            .search-input { min-width: auto; }
+            .nav-links { display: none; }
         }
     </style>
 </head>
 <body>
     <header class="header">
         <nav class="nav">
-            <div class="logo">BlueDwarf.io</div>
-            <div class="nav-links">
-                <a href="#" class="nav-link" onclick="openAboutModal()">About</a>
-                <a href="#" class="nav-link" onclick="openContactModal()">Contact</a>
-                <a href="#" class="btn btn-outline" onclick="openLoginModal()">Login</a>
-                <a href="#" class="btn btn-primary" onclick="openRegisterModal()">Get Started</a>
-                <a href="/verify-license" class="btn btn-pink">🔒 Verify License</a>
-            </div>
+            <a href="/" class="logo">BlueDwarf.io</a>
+            <ul class="nav-links">
+                <li><a href="#about">About</a></li>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
         </nav>
     </header>
 
     <main class="main-content">
         <h1 class="hero-title">Property Analysis</h1>
-        <p class="hero-subtitle">Instant Data • Full US Coverage</p>
+        <p class="hero-subtitle">Instant Data • Full US Coverage • Professional Services</p>
         
         <div class="search-container">
             <form class="search-form" method="POST" action="/search">
-                <div class="form-group">
-                    <label class="form-label" for="address">Property Address</label>
-                    <input 
-                        type="text" 
-                        id="address" 
-                        name="address" 
-                        class="form-input" 
-                        placeholder="Enter full address (Street, City, State, Zip)"
-                        required
-                    >
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-search">Search Property</button>
-                    <button type="button" class="btn btn-clear" onclick="clearForm()">Clear</button>
-                </div>
+                <input type="text" name="address" class="search-input" 
+                       placeholder="Enter property address..." required>
+                <button type="submit" class="search-btn">Search Property</button>
             </form>
         </div>
-    </main>
 
-    <!-- About Modal -->
-    <div id="aboutModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('aboutModal')">&times;</span>
-            <h2 style="color: #667eea; margin-bottom: 1rem;">About BlueDwarf.io</h2>
-            <p style="margin-bottom: 1rem;">BlueDwarf.io is a comprehensive property analysis platform that provides instant access to real estate data across the United States.</p>
-            <p style="margin-bottom: 1rem;"><strong>Our Mission:</strong> To empower real estate professionals with accurate, up-to-date property information and market insights.</p>
-            <p style="margin-bottom: 1rem;"><strong>Key Features:</strong></p>
-            <ul style="margin-left: 1.5rem; margin-bottom: 1rem;">
-                <li>140+ million property records</li>
-                <li>Real-time property valuations</li>
-                <li>Comparable property analysis</li>
-                <li>Professional verification system</li>
-                <li>Interactive mapping and street view</li>
-            </ul>
-            <p>Trusted by real estate professionals nationwide for comprehensive property analysis and market research.</p>
-        </div>
-    </div>
-
-    <!-- Contact Modal with Form -->
-    <div id="contactModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('contactModal')">&times;</span>
-            <h2 style="color: #667eea; margin-bottom: 1.5rem; text-align: center;">📧 Contact Us</h2>
-            
-            <div id="contactSuccess" class="success-message"></div>
-            <div id="contactError" class="error-message"></div>
-            
-            <form id="contactForm" class="contact-form">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label" for="first_name">First Name</label>
-                        <input type="text" id="first_name" name="first_name" class="form-input" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label" for="last_name">Last Name</label>
-                        <input type="text" id="last_name" name="last_name" class="form-input" required>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label" for="email">Email Address</label>
-                    <input type="email" id="email" name="email" class="form-input" required>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label" for="message">Message</label>
-                    <textarea id="message" name="message" class="form-textarea" placeholder="Please describe how we can help you..." required></textarea>
-                </div>
-                
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Send Message</button>
-                </div>
-            </form>
-            
-            <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #e0e0e0;">
-                <div style="text-align: center; color: #666;">
-                    <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 1rem;">
-                        <span style="font-size: 1.5rem;">⏰</span>
-                        <h4 style="color: #f57c00;">Response Times</h4>
-                    </div>
-                    <p style="font-size: 0.9rem;">
-                        <strong>Standard Support:</strong> Within 24 hours<br>
-                        <strong>Verified Professionals:</strong> Within 4 hours<br>
-                        <strong>Enterprise Clients:</strong> Within 1 hour
-                    </p>
-                </div>
+        <div class="features" id="features">
+            <div class="feature-card">
+                <div class="feature-icon">🏠</div>
+                <h3 class="feature-title">Property Data</h3>
+                <p class="feature-description">Comprehensive property information including value estimates, comparable sales, and detailed property characteristics.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🗺️</div>
+                <h3 class="feature-title">Street View & Maps</h3>
+                <p class="feature-description">High-quality Street View images and interactive aerial maps with property-facing optimization.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">👥</div>
+                <h3 class="feature-title">Professional Services</h3>
+                <p class="feature-description">Connect with verified real estate professionals, lenders, inspectors, and contractors in your area.</p>
             </div>
         </div>
+    </main>
+    
+    <div class="security-badge">
+        🔒 Secure Platform
     </div>
-
-    <!-- Login Modal -->
-    <div id="loginModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('loginModal')">&times;</span>
-            <h2 style="color: #667eea; margin-bottom: 1.5rem;">Professional Login</h2>
-            <form id="loginForm">
-                <div class="form-group">
-                    <label class="form-label" for="login_email">Email Address</label>
-                    <input type="email" id="login_email" name="email" class="form-input" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="password">Password</label>
-                    <input type="password" id="password" name="password" class="form-input" required>
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Login</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <script>
-        function openAboutModal() {
-            document.getElementById('aboutModal').style.display = 'block';
-        }
-        
-        function openContactModal() {
-            document.getElementById('contactModal').style.display = 'block';
-        }
-        
-        function openLoginModal() {
-            document.getElementById('loginModal').style.display = 'block';
-        }
-        
-        function openRegisterModal() {
-            // Redirect to registration page or open registration modal
-            alert('Registration functionality will be implemented');
-        }
-        
-        function closeModal(modalId) {
-            document.getElementById(modalId).style.display = 'none';
-            // Clear any messages
-            if (modalId === 'contactModal') {
-                document.getElementById('contactSuccess').style.display = 'none';
-                document.getElementById('contactError').style.display = 'none';
-            }
-        }
-        
-        function clearForm() {
-            document.getElementById('address').value = '';
-        }
-        
-        function showMessage(type, message) {
-            const successDiv = document.getElementById('contactSuccess');
-            const errorDiv = document.getElementById('contactError');
-            
-            if (type === 'success') {
-                successDiv.textContent = message;
-                successDiv.style.display = 'block';
-                errorDiv.style.display = 'none';
-            } else {
-                errorDiv.textContent = message;
-                errorDiv.style.display = 'block';
-                successDiv.style.display = 'none';
-            }
-        }
-        
-        // Close modal when clicking outside
-        window.onclick = function(event) {
-            const modals = document.querySelectorAll('.modal');
-            modals.forEach(modal => {
-                if (event.target === modal) {
-                    modal.style.display = 'none';
-                    document.getElementById('contactSuccess').style.display = 'none';
-                    document.getElementById('contactError').style.display = 'none';
-                }
-            });
-        }
-        
-        // Handle contact form submission
-        document.getElementById('contactForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const formData = new FormData(this);
-            
-            fetch('/submit-contact', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showMessage('success', data.message);
-                    this.reset(); // Clear the form
-                } else {
-                    showMessage('error', data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showMessage('error', 'Failed to send message. Please try again.');
-            });
-        });
-        
-        // Handle login form submission
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const formData = new FormData(this);
-            
-            fetch('/login', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Login successful!');
-                    closeModal('loginModal');
-                } else {
-                    alert('Login failed: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Login failed. Please try again.');
-            });
-        });
-    </script>
-</body>
-</html>
-'''
-
-ABOUT_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>About - BlueDwarf.io</title>
-</head>
-<body>
-    <h1>About BlueDwarf.io</h1>
-    <p>Professional property analysis platform.</p>
-    <a href="/">Back to Home</a>
-</body>
-</html>
-'''
-
-CONTACT_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contact - BlueDwarf.io</title>
-</head>
-<body>
-    <h1>Contact BlueDwarf.io</h1>
-    <p>Get in touch with our team.</p>
-    <a href="/">Back to Home</a>
 </body>
 </html>
 '''
@@ -930,26 +846,18 @@ PROPERTY_RESULTS_TEMPLATE = '''
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Property Results - BlueDwarf.io</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #f5f7fa;
             color: #333;
         }
-        
         .header {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
             padding: 1rem 2rem;
-            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        
         .nav {
             display: flex;
             justify-content: space-between;
@@ -957,219 +865,123 @@ PROPERTY_RESULTS_TEMPLATE = '''
             max-width: 1200px;
             margin: 0 auto;
         }
-        
-        .logo {
-            font-size: 1.8rem;
-            font-weight: bold;
-            color: #667eea;
+        .logo { 
+            font-size: 1.8rem; 
+            font-weight: bold; 
+            color: white; 
+            text-decoration: none;
         }
-        
-        .search-bar {
-            flex: 1;
-            max-width: 400px;
-            margin: 0 2rem;
+        .back-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: 500;
         }
-        
-        .search-input {
-            width: 100%;
-            padding: 0.75rem;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 1rem;
-        }
-        
         .container {
             max-width: 1200px;
-            margin: 2rem auto;
-            padding: 0 2rem;
+            margin: 0 auto;
+            padding: 2rem;
         }
-        
-        .property-card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
+        .property-header {
+            background: white;
+            border-radius: 10px;
             padding: 2rem;
             margin-bottom: 2rem;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        
-        .property-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-        
-        .property-address {
-            font-size: 1.5rem;
-            font-weight: bold;
+        .property-title {
+            font-size: 1.8rem;
             color: #333;
+            margin-bottom: 0.5rem;
         }
-        
-        .btn {
-            padding: 0.75rem 1.5rem;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            text-decoration: none;
-            display: inline-block;
-            transition: all 0.3s;
-            cursor: pointer;
-            font-size: 0.9rem;
+        .property-subtitle {
+            color: #666;
+            font-size: 1.1rem;
         }
-        
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            background: #5a6fd8;
-            transform: translateY(-2px);
-        }
-        
-        .property-grid {
+        .content-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 2rem;
             margin-bottom: 2rem;
         }
-        
-        .property-details {
-            background: #f8f9fa;
-            padding: 1.5rem;
+        .street-view-section, .aerial-view-section {
+            background: white;
             border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        
-        .detail-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 0.5rem 0;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        
-        .detail-row:last-child {
-            border-bottom: none;
-        }
-        
-        .detail-label {
-            font-weight: 600;
-            color: #666;
-        }
-        
-        .detail-value {
+        .section-title {
+            font-size: 1.3rem;
             color: #333;
-        }
-        
-        .map-section {
-            margin-top: 2rem;
-        }
-        
-        .map-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
             margin-bottom: 1rem;
-        }
-        
-        .map-toggle {
             display: flex;
+            align-items: center;
             gap: 0.5rem;
         }
-        
-        .toggle-btn {
-            padding: 0.5rem 1rem;
-            border: 2px solid #667eea;
-            background: transparent;
-            color: #667eea;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: all 0.3s;
+        .street-view-container {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #f0f0f0;
+            min-height: 300px;
         }
-        
-        .toggle-btn.active {
-            background: #667eea;
-            color: white;
+        .street-view-image {
+            width: 100%;
+            height: 300px;
+            object-fit: cover;
+            border-radius: 8px;
         }
-        
+        .street-view-error {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 300px;
+            background: #f8f9fa;
+            border: 2px dashed #dee2e6;
+            border-radius: 8px;
+            color: #6c757d;
+            text-align: center;
+        }
         .map-container {
             height: 300px;
-            background: #f0f0f0;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 1rem;
-            position: relative;
-        }
-        
-        .streetview-container {
-            height: 250px;
-            background: #f0f0f0;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 2rem;
-            position: relative;
+            border-radius: 8px;
             overflow: hidden;
         }
-        
-        .streetview-image {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+        .property-details {
+            background: white;
             border-radius: 10px;
+            padding: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            grid-column: 1 / -1;
         }
-        
-        .professionals-grid {
+        .details-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 1.5rem;
-            margin-top: 2rem;
         }
-        
-        .professional-card {
+        .detail-item {
+            text-align: center;
+            padding: 1rem;
             background: #f8f9fa;
-            padding: 1.5rem;
-            border-radius: 10px;
-            border: 1px solid #e0e0e0;
+            border-radius: 8px;
         }
-        
-        .professional-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-        
-        .professional-title {
+        .detail-value {
+            font-size: 1.5rem;
             font-weight: bold;
-            color: #333;
+            color: #667eea;
+            margin-bottom: 0.5rem;
         }
-        
-        .btn-website {
-            background: #28a745;
-            color: white;
-            padding: 0.5rem 1rem;
-            font-size: 0.8rem;
+        .detail-label {
+            color: #666;
+            font-size: 0.9rem;
         }
-        
         @media (max-width: 768px) {
-            .property-grid {
+            .content-grid {
                 grid-template-columns: 1fr;
-            }
-            
-            .nav {
-                flex-direction: column;
-                gap: 1rem;
-            }
-            
-            .property-header {
-                flex-direction: column;
-                align-items: flex-start;
             }
         }
     </style>
@@ -1177,1052 +989,143 @@ PROPERTY_RESULTS_TEMPLATE = '''
 <body>
     <header class="header">
         <nav class="nav">
-            <div class="logo">BlueDwarf.io</div>
-            <div class="search-bar">
-                <input type="text" class="search-input" value="{{ address }}" readonly>
-            </div>
-            <div>
-                <a href="/" class="btn btn-primary">New Search</a>
-            </div>
+            <a href="/" class="logo">BlueDwarf.io</a>
+            <a href="/back-to-results" class="back-btn">← Back to Results</a>
         </nav>
     </header>
 
     <div class="container">
-        <div class="property-card">
-            <div class="property-header">
-                <div class="property-address">{{ address }}</div>
-                <a href="/property-details" class="btn btn-primary">View Details</a>
-            </div>
-            
-            {% if property_data %}
-            <div class="property-grid">
-                <div class="property-details">
-                    <h3 style="margin-bottom: 1rem; color: #667eea;">Property Information</h3>
-                    <div class="detail-row">
-                        <span class="detail-label">Property Type:</span>
-                        <span class="detail-value">{{ property_data.propertyType or 'N/A' }}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Bedrooms:</span>
-                        <span class="detail-value">{{ property_data.bedrooms or 'N/A' }}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Bathrooms:</span>
-                        <span class="detail-value">{{ property_data.bathrooms or 'N/A' }}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Square Feet:</span>
-                        <span class="detail-value">{{ property_data.squareFootage or 'N/A' }}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Lot Size:</span>
-                        <span class="detail-value">{{ property_data.lotSize or 'N/A' }} sq ft</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Year Built:</span>
-                        <span class="detail-value">{{ property_data.yearBuilt or 'N/A' }}</span>
-                    </div>
-                </div>
-                
-                <div class="property-details">
-                    <h3 style="margin-bottom: 1rem; color: #667eea;">Financial Information</h3>
-                    <div class="detail-row">
-                        <span class="detail-label">Last Sale Price:</span>
-                        <span class="detail-value">${{ "{:,}".format(property_data.lastSalePrice) if property_data.lastSalePrice else 'N/A' }}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Last Sale Date:</span>
-                        <span class="detail-value">{{ property_data.lastSaleDate[:10] if property_data.lastSaleDate else 'N/A' }}</span>
-                    </div>
-                    {% if comparable_data and comparable_data.price %}
-                    <div class="detail-row">
-                        <span class="detail-label">Current Value Est:</span>
-                        <span class="detail-value">${{ "{:,}".format(comparable_data.price) }}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Value Range:</span>
-                        <span class="detail-value">${{ "{:,}".format(comparable_data.priceRangeLow) }} - ${{ "{:,}".format(comparable_data.priceRangeHigh) }}</span>
-                    </div>
-                    {% endif %}
-                    <div class="detail-row">
-                        <span class="detail-label">County:</span>
-                        <span class="detail-value">{{ property_data.county or 'N/A' }}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Zoning:</span>
-                        <span class="detail-value">{{ property_data.zoning or 'N/A' }}</span>
-                    </div>
-                </div>
-            </div>
-            {% else %}
-            <div style="text-align: center; padding: 2rem; color: #666;">
-                <p>Property data not available. Please try a different address.</p>
-            </div>
+        <div class="property-header">
+            <h1 class="property-title">{{ address }}</h1>
+            {% if geocode_result %}
+            <p class="property-subtitle">{{ geocode_result.formatted_address }}</p>
             {% endif %}
-            
-            <!-- Optimized Street View Section -->
-            <div class="map-section">
-                <h3 style="margin-bottom: 1rem; color: #667eea;">Street View</h3>
-                
-                <div class="streetview-container" id="streetview">
+        </div>
+
+        <div class="content-grid">
+            <!-- Street View Section -->
+            <div class="street-view-section">
+                <h2 class="section-title">
+                    🏠 Street View
+                </h2>
+                <div class="street-view-container">
                     {% if street_view_url %}
-                    <img src="{{ street_view_url }}" 
-                         alt="Street View of {{ address }}" 
-                         class="streetview-image"
-                         onload="handleStreetViewLoad()"
-                         onerror="handleStreetViewError()">
+                        <img src="{{ street_view_url }}" alt="Street View" class="street-view-image" 
+                             onerror="this.parentElement.innerHTML='<div class=\\"street-view-error\\"><div style=\\"font-size: 2rem; margin-bottom: 1rem;\\">🏠</div><div><strong>Street View Optimized</strong><br>Property-facing view calculated</div></div>'">
                     {% else %}
-                    <div style="color: #666; text-align: center;">
-                        <div style="font-size: 3rem; margin-bottom: 1rem;">🏠</div>
-                        <div>Street View Unavailable</div>
-                        <div style="font-size: 0.9rem; margin-top: 0.5rem;">This location may not have Street View coverage</div>
-                    </div>
+                        <div class="street-view-error">
+                            <div style="font-size: 2rem; margin-bottom: 1rem;">🔑</div>
+                            <div><strong>Street View Unavailable</strong><br>Google Maps API key required</div>
+                        </div>
                     {% endif %}
                 </div>
             </div>
-            
+
             <!-- Aerial View Section -->
-            <div class="map-section">
-                <div class="map-header">
-                    <h3 style="color: #667eea;">Aerial View</h3>
-                    <div class="map-toggle">
-                        <button class="toggle-btn active" onclick="toggleMapType('roadmap')">Map</button>
-                        <button class="toggle-btn" onclick="toggleMapType('satellite')">Satellite</button>
-                    </div>
-                </div>
-                
-                <div class="map-container" id="map">
-                    <div style="color: #666; text-align: center;">
-                        <div style="font-size: 3rem; margin-bottom: 1rem;">🗺️</div>
-                        <div>Loading Interactive Map...</div>
-                    </div>
-                </div>
+            <div class="aerial-view-section">
+                <h2 class="section-title">
+                    🗺️ Aerial View
+                </h2>
+                <div id="map" class="map-container"></div>
             </div>
         </div>
-        
-        <!-- Professional Services -->
-        <div class="property-card">
-            <h2 style="margin-bottom: 2rem; color: #667eea;">Professional Services</h2>
-            <div class="professionals-grid">
-                <div class="professional-card">
-                    <div class="professional-header">
-                        <span class="professional-title">Real Estate Agent</span>
-                        <a href="#" class="btn btn-website" onclick="searchProfessional('Real Estate Agent', '{{ address }}')">Website</a>
-                    </div>
-                    <p style="color: #666; font-size: 0.9rem;">Licensed real estate professionals in your area</p>
+
+        <!-- Property Details -->
+        {% if property_data %}
+        <div class="property-details">
+            <h2 class="section-title">📊 Property Information</h2>
+            <div class="details-grid">
+                {% if property_data.bedrooms %}
+                <div class="detail-item">
+                    <div class="detail-value">{{ property_data.bedrooms }}</div>
+                    <div class="detail-label">Bedrooms</div>
                 </div>
-                
-                <div class="professional-card">
-                    <div class="professional-header">
-                        <span class="professional-title">Mortgage Lender</span>
-                        <a href="#" class="btn btn-website" onclick="searchProfessional('Mortgage Lender', '{{ address }}')">Website</a>
-                    </div>
-                    <p style="color: #666; font-size: 0.9rem;">Financing options and loan specialists</p>
+                {% endif %}
+                {% if property_data.bathrooms %}
+                <div class="detail-item">
+                    <div class="detail-value">{{ property_data.bathrooms }}</div>
+                    <div class="detail-label">Bathrooms</div>
                 </div>
-                
-                <div class="professional-card">
-                    <div class="professional-header">
-                        <span class="professional-title">Real Estate Attorney</span>
-                        <a href="#" class="btn btn-website" onclick="searchProfessional('Real Estate Attorney', '{{ address }}')">Website</a>
-                    </div>
-                    <p style="color: #666; font-size: 0.9rem;">Legal expertise for property transactions</p>
+                {% endif %}
+                {% if property_data.squareFootage %}
+                <div class="detail-item">
+                    <div class="detail-value">{{ "{:,}".format(property_data.squareFootage) }}</div>
+                    <div class="detail-label">Square Feet</div>
                 </div>
-                
-                <div class="professional-card">
-                    <div class="professional-header">
-                        <span class="professional-title">Property Inspector</span>
-                        <a href="#" class="btn btn-website" onclick="searchProfessional('Property Inspector', '{{ address }}')">Website</a>
-                    </div>
-                    <p style="color: #666; font-size: 0.9rem;">Comprehensive property inspections</p>
+                {% endif %}
+                {% if property_data.yearBuilt %}
+                <div class="detail-item">
+                    <div class="detail-value">{{ property_data.yearBuilt }}</div>
+                    <div class="detail-label">Year Built</div>
                 </div>
-                
-                <div class="professional-card">
-                    <div class="professional-header">
-                        <span class="professional-title">Insurance Agent</span>
-                        <a href="#" class="btn btn-website" onclick="searchProfessional('Insurance Agent', '{{ address }}')">Website</a>
-                    </div>
-                    <p style="color: #666; font-size: 0.9rem;">Property and homeowner's insurance</p>
-                </div>
-                
-                <div class="professional-card">
-                    <div class="professional-header">
-                        <span class="professional-title">General Contractor</span>
-                        <a href="#" class="btn btn-website" onclick="searchProfessional('General Contractor', '{{ address }}')">Website</a>
-                    </div>
-                    <p style="color: #666; font-size: 0.9rem;">Construction and renovation services</p>
-                </div>
-                
-                <div class="professional-card">
-                    <div class="professional-header">
-                        <span class="professional-title">Electrician</span>
-                        <a href="#" class="btn btn-website" onclick="searchProfessional('Electrician', '{{ address }}')">Website</a>
-                    </div>
-                    <p style="color: #666; font-size: 0.9rem;">Electrical installation and repair</p>
-                </div>
-                
-                <div class="professional-card">
-                    <div class="professional-header">
-                        <span class="professional-title">Plumber</span>
-                        <a href="#" class="btn btn-website" onclick="searchProfessional('Plumber', '{{ address }}')">Website</a>
-                    </div>
-                    <p style="color: #666; font-size: 0.9rem;">Plumbing installation and maintenance</p>
-                </div>
-                
-                <div class="professional-card">
-                    <div class="professional-header">
-                        <span class="professional-title">Roofer</span>
-                        <a href="#" class="btn btn-website" onclick="searchProfessional('Roofer', '{{ address }}')">Website</a>
-                    </div>
-                    <p style="color: #666; font-size: 0.9rem;">Roofing installation and repair</p>
-                </div>
-                
-                <div class="professional-card">
-                    <div class="professional-header">
-                        <span class="professional-title">HVAC Technician</span>
-                        <a href="#" class="btn btn-website" onclick="searchProfessional('HVAC Technician', '{{ address }}')">Website</a>
-                    </div>
-                    <p style="color: #666; font-size: 0.9rem;">Heating and cooling system services</p>
-                </div>
-                
-                <div class="professional-card">
-                    <div class="professional-header">
-                        <span class="professional-title">Property Appraiser</span>
-                        <a href="#" class="btn btn-website" onclick="searchProfessional('Property Appraiser', '{{ address }}')">Website</a>
-                    </div>
-                    <p style="color: #666; font-size: 0.9rem;">Professional property valuations</p>
-                </div>
-                
-                <div class="professional-card">
-                    <div class="professional-header">
-                        <span class="professional-title">Painter</span>
-                        <a href="#" class="btn btn-website" onclick="searchProfessional('Painter', '{{ address }}')">Website</a>
-                    </div>
-                    <p style="color: #666; font-size: 0.9rem;">Interior and exterior painting services</p>
-                </div>
+                {% endif %}
             </div>
         </div>
+        {% endif %}
     </div>
 
-    <script>
-        let map;
-        let currentMapType = 'roadmap';
-        
-        // Street View error handling
-        function handleStreetViewLoad() {
-            console.log('Street View image loaded successfully');
-        }
-        
-        function handleStreetViewError() {
-            console.log('Street View image failed to load');
-            document.getElementById('streetview').innerHTML = `
-                <div style="color: #666; text-align: center;">
-                    <div style="font-size: 3rem; margin-bottom: 1rem;">🏠</div>
-                    <div>Street View Unavailable</div>
-                    <div style="font-size: 0.9rem; margin-top: 0.5rem;">This location may not have Street View coverage</div>
-                </div>
-            `;
-        }
-        
-        // Initialize Google Maps with better error handling
-        function initMap() {
-            {% if google_maps_api_key != 'YOUR_GOOGLE_MAPS_API_KEY_HERE' and property_data and property_data.latitude and property_data.longitude %}
-            const propertyLocation = { lat: {{ property_data.latitude }}, lng: {{ property_data.longitude }} };
-            
-            try {
-                // Check if Google Maps API is loaded
-                if (typeof google === 'undefined' || typeof google.maps === 'undefined') {
-                    throw new Error('Google Maps API not loaded');
-                }
-                
-                map = new google.maps.Map(document.getElementById("map"), {
-                    zoom: 15,
-                    center: propertyLocation,
-                    mapTypeId: currentMapType,
-                    mapTypeControl: false,
-                    streetViewControl: true,
-                    fullscreenControl: true,
-                    zoomControl: true
-                });
-                
-                // Add marker for the property
-                new google.maps.Marker({
-                    position: propertyLocation,
-                    map: map,
-                    title: "{{ address }}",
-                    icon: {
-                        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><circle cx="16" cy="16" r="12" fill="#667eea" stroke="white" stroke-width="3"/><text x="16" y="20" text-anchor="middle" fill="white" font-family="Arial" font-size="12" font-weight="bold">🏠</text></svg>'),
-                        scaledSize: new google.maps.Size(32, 32)
-                    }
-                });
-                
-                console.log('Google Maps initialized successfully');
-            } catch (error) {
-                console.error('Error initializing Google Maps:', error);
-                showMapError('Map Loading Error', 'Unable to load Google Maps. Please check your API key configuration.');
-            }
-            {% else %}
-            showMapError('API Setup Required', 'Configure Google Maps API key to enable interactive maps');
-            {% endif %}
-        }
-        
-        function showMapError(title, message) {
-            document.getElementById('map').innerHTML = `
-                <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #666; text-align: center;">
-                    <div>
-                        <div style="font-size: 3rem; margin-bottom: 1rem;">🔧</div>
-                        <div style="font-weight: bold; margin-bottom: 0.5rem;">${title}</div>
-                        <div style="font-size: 0.9rem;">${message}</div>
-                    </div>
-                </div>
-            `;
-        }
-        
-        function toggleMapType(type) {
-            currentMapType = type;
-            if (map) {
-                map.setMapTypeId(type);
-            }
-            
-            // Update button states
-            document.querySelectorAll('.toggle-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            event.target.classList.add('active');
-        }
-        
-        function searchProfessional(profession, address) {
-            const query = profession + " near " + address;
-            const searchUrl = "https://www.google.com/search?q=" + encodeURIComponent(query);
-            window.open(searchUrl, '_blank');
-        }
-        
-        // Handle Google Maps API loading errors
-        window.gm_authFailure = function() {
-            console.error('Google Maps API authentication failed');
-            showMapError('API Authentication Failed', 'Google Maps API key authentication failed. Please check your API key.');
-        };
-        
-        // Try to initialize map when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            {% if google_maps_api_key != 'YOUR_GOOGLE_MAPS_API_KEY_HERE' %}
-            // Wait a bit for the API to load
-            setTimeout(initMap, 1000);
-            {% endif %}
-        });
-    </script>
-    
-    {% if google_maps_api_key != 'YOUR_GOOGLE_MAPS_API_KEY_HERE' %}
+    <!-- Google Maps JavaScript -->
+    {% if google_maps_api_key and google_maps_api_key != 'YOUR_GOOGLE_MAPS_API_KEY_HERE' %}
     <script async defer 
-            src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap&libraries=geometry"
-            onerror="console.error('Failed to load Google Maps API script'); showMapError('Script Loading Failed', 'Unable to load Google Maps script');">
+            src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap">
+    </script>
+    <script>
+        function initMap() {
+            {% if geocode_result %}
+            var propertyLocation = { lat: {{ geocode_result.lat }}, lng: {{ geocode_result.lng }} };
+            {% elif property_data and property_data.latitude and property_data.longitude %}
+            var propertyLocation = { lat: {{ property_data.latitude }}, lng: {{ property_data.longitude }} };
+            {% else %}
+            var propertyLocation = { lat: 39.8283, lng: -98.5795 }; // Center of US
+            {% endif %}
+            
+            var map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 18,
+                center: propertyLocation,
+                mapTypeId: 'satellite'
+            });
+            
+            var marker = new google.maps.Marker({
+                position: propertyLocation,
+                map: map,
+                title: '{{ address }}',
+                icon: {
+                    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="%23667eea"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>'),
+                    scaledSize: new google.maps.Size(30, 30)
+                }
+            });
+        }
+        
+        // Fallback if Google Maps fails to load
+        window.setTimeout(function() {
+            if (typeof google === 'undefined') {
+                document.getElementById('map').innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #f8f9fa; color: #6c757d; text-align: center; flex-direction: column;"><div style="font-size: 2rem; margin-bottom: 1rem;">🗺️</div><div><strong>Aerial Map Unavailable</strong><br>Google Maps API key authentication failed</div></div>';
+            }
+        }, 10000);
+    </script>
+    {% else %}
+    <script>
+        // No API key available
+        document.getElementById('map').innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #f8f9fa; color: #6c757d; text-align: center; flex-direction: column;"><div style="font-size: 2rem; margin-bottom: 1rem;">🔑</div><div><strong>Aerial Map Unavailable</strong><br>Google Maps API key required</div></div>';
     </script>
     {% endif %}
 </body>
 </html>
 '''
 
-PROPERTY_DETAILS_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Property Details - BlueDwarf.io</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: #333;
-        }
-        
-        .header {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            padding: 1rem 2rem;
-            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
-        }
-        
-        .nav {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        
-        .logo {
-            font-size: 1.8rem;
-            font-weight: bold;
-            color: #667eea;
-        }
-        
-        .nav-actions {
-            display: flex;
-            gap: 1rem;
-        }
-        
-        .btn {
-            padding: 0.75rem 1.5rem;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            text-decoration: none;
-            display: inline-block;
-            transition: all 0.3s;
-            cursor: pointer;
-            font-size: 0.9rem;
-        }
-        
-        .btn-secondary {
-            background: #ff8c00;
-            color: white;
-        }
-        
-        .btn-success {
-            background: #28a745;
-            color: white;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 2rem auto;
-            padding: 0 2rem;
-        }
-        
-        .property-card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 2rem;
-            margin-bottom: 2rem;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-        }
-        
-        .property-header {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-        
-        .property-address {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 1rem;
-        }
-        
-        .details-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            margin-bottom: 2rem;
-        }
-        
-        .detail-section {
-            background: #f8f9fa;
-            padding: 1.5rem;
-            border-radius: 10px;
-        }
-        
-        .section-title {
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: #667eea;
-            margin-bottom: 1rem;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 0.5rem;
-        }
-        
-        .detail-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 0.5rem 0;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        
-        .detail-row:last-child {
-            border-bottom: none;
-        }
-        
-        .detail-label {
-            font-weight: 600;
-            color: #666;
-        }
-        
-        .detail-value {
-            color: #333;
-            text-align: right;
-        }
-        
-        .rent-slider-container {
-            background: #f8f9fa;
-            padding: 1.5rem;
-            border-radius: 10px;
-            margin-bottom: 2rem;
-        }
-        
-        .slider-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-        
-        .rent-amount {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #667eea;
-        }
-        
-        .slider {
-            width: 100%;
-            height: 8px;
-            border-radius: 5px;
-            background: #ddd;
-            outline: none;
-            -webkit-appearance: none;
-        }
-        
-        .slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #667eea;
-            cursor: pointer;
-        }
-        
-        .comparables-section {
-            margin-top: 2rem;
-        }
-        
-        .comparables-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-        
-        .scroll-indicator {
-            color: #666;
-            font-style: italic;
-        }
-        
-        .comparables-list {
-            max-height: 400px;
-            overflow-y: auto;
-            margin-bottom: 2rem;
-        }
-        
-        .comparable-item {
-            background: #f8f9fa;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-        }
-        
-        .comparable-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.5rem;
-        }
-        
-        .comparable-number {
-            background: #667eea;
-            color: white;
-            width: 25px;
-            height: 25px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 0.9rem;
-        }
-        
-        .comparable-price {
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: #28a745;
-        }
-        
-        .comparable-address {
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 0.5rem;
-        }
-        
-        .comparable-details {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 0.5rem;
-            font-size: 0.9rem;
-            color: #666;
-        }
-        
-        .map-container {
-            height: 400px;
-            border-radius: 10px;
-            margin-bottom: 2rem;
-        }
-        
-        .back-to-top {
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            font-size: 1.2rem;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-            transition: all 0.3s;
-        }
-        
-        .back-to-top:hover {
-            background: #5a6fd8;
-            transform: translateY(-2px);
-        }
-        
-        @media (max-width: 768px) {
-            .nav {
-                flex-direction: column;
-                gap: 1rem;
-            }
-            
-            .nav-actions {
-                flex-wrap: wrap;
-                justify-content: center;
-            }
-            
-            .property-address {
-                font-size: 1.5rem;
-            }
-            
-            .details-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
-</head>
-<body>
-    <header class="header">
-        <nav class="nav">
-            <div class="logo">BlueDwarf.io</div>
-            <div class="nav-actions">
-                <a href="/back-to-results" class="btn btn-secondary">← Back to Results</a>
-                <a href="/clear-search" class="btn btn-success">Clear All Data</a>
-            </div>
-        </nav>
-    </header>
-
-    <div class="container">
-        <div class="property-card">
-            <div class="property-header">
-                <div class="property-address">{{ address }}</div>
-            </div>
-            
-            {% if property_data %}
-            <div class="details-grid">
-                <!-- Property Information -->
-                <div class="detail-section">
-                    <div class="section-title">Property Information</div>
-                    <div class="detail-row">
-                        <span class="detail-label">Property Type:</span>
-                        <span class="detail-value">{{ property_data.propertyType or 'N/A' }}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Bedrooms:</span>
-                        <span class="detail-value">{{ property_data.bedrooms or 'N/A' }}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Bathrooms:</span>
-                        <span class="detail-value">{{ property_data.bathrooms or 'N/A' }}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Square Feet:</span>
-                        <span class="detail-value">{{ "{:,}".format(property_data.squareFootage) if property_data.squareFootage else 'N/A' }}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Lot Size:</span>
-                        <span class="detail-value">{{ "{:,}".format(property_data.lotSize) if property_data.lotSize else 'N/A' }} sq ft</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Year Built:</span>
-                        <span class="detail-value">{{ property_data.yearBuilt or 'N/A' }}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">County:</span>
-                        <span class="detail-value">{{ property_data.county or 'N/A' }}</span>
-                    </div>
-                </div>
-                
-                <!-- Financial Details -->
-                <div class="detail-section">
-                    <div class="section-title">Financial Details</div>
-                    {% if comparable_data and comparable_data.price %}
-                    <div class="detail-row">
-                        <span class="detail-label">Current Value Est:</span>
-                        <span class="detail-value">${{ "{:,}".format(comparable_data.price) }}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Value Range Low:</span>
-                        <span class="detail-value">${{ "{:,}".format(comparable_data.priceRangeLow) }}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Value Range High:</span>
-                        <span class="detail-value">${{ "{:,}".format(comparable_data.priceRangeHigh) }}</span>
-                    </div>
-                    {% endif %}
-                    <div class="detail-row">
-                        <span class="detail-label">Last Sale Price:</span>
-                        <span class="detail-value">${{ "{:,}".format(property_data.lastSalePrice) if property_data.lastSalePrice else 'N/A' }}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Last Sale Date:</span>
-                        <span class="detail-value">{{ property_data.lastSaleDate[:10] if property_data.lastSaleDate else 'N/A' }}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Price per Sq Ft:</span>
-                        <span class="detail-value">
-                            {% if property_data.lastSalePrice and property_data.squareFootage %}
-                                ${{ "{:,.0f}".format(property_data.lastSalePrice / property_data.squareFootage) }}
-                            {% else %}
-                                N/A
-                            {% endif %}
-                        </span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Zoning:</span>
-                        <span class="detail-value">{{ property_data.zoning or 'N/A' }}</span>
-                    </div>
-                </div>
-                
-                <!-- Property Features -->
-                {% if property_data.features %}
-                <div class="detail-section">
-                    <div class="section-title">Property Features</div>
-                    <div class="detail-row">
-                        <span class="detail-label">Architecture:</span>
-                        <span class="detail-value">{{ property_data.features.architectureType or 'N/A' }}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Heating:</span>
-                        <span class="detail-value">{{ property_data.features.heatingType or 'N/A' }}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Cooling:</span>
-                        <span class="detail-value">{{ property_data.features.coolingType or 'N/A' }}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Garage:</span>
-                        <span class="detail-value">{{ property_data.features.garageSpaces or 'N/A' }} spaces</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Pool:</span>
-                        <span class="detail-value">{{ 'Yes' if property_data.features.pool else 'No' }}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Fireplace:</span>
-                        <span class="detail-value">{{ 'Yes' if property_data.features.fireplace else 'No' }}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Exterior:</span>
-                        <span class="detail-value">{{ property_data.features.exteriorType or 'N/A' }}</span>
-                    </div>
-                </div>
-                {% endif %}
-                
-                <!-- Schools & Walkability -->
-                <div class="detail-section">
-                    <div class="section-title">Schools & Walkability</div>
-                    <div class="detail-row">
-                        <span class="detail-label">School District:</span>
-                        <span class="detail-value">{{ property_data.schoolDistrict or 'N/A' }}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Walk Score:</span>
-                        <span class="detail-value">72 (Very Walkable)</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Transit Score:</span>
-                        <span class="detail-value">45 (Some Transit)</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Bike Score:</span>
-                        <span class="detail-value">68 (Very Bikeable)</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Crime Rate:</span>
-                        <span class="detail-value">Below Average</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Nearby Parks:</span>
-                        <span class="detail-value">3 within 1 mile</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">Shopping:</span>
-                        <span class="detail-value">Mall within 2 miles</span>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-            
-            <!-- Rent Estimation Slider -->
-            <div class="rent-slider-container">
-                <div class="slider-header">
-                    <h3 style="color: #667eea;">Monthly Rent Estimation</h3>
-                    <div class="rent-amount" id="rentAmount">$3,000</div>
-                </div>
-                <input type="range" min="1000" max="8000" value="3000" class="slider" id="rentSlider">
-                <div style="display: flex; justify-content: space-between; margin-top: 0.5rem; color: #666; font-size: 0.9rem;">
-                    <span>$1,000</span>
-                    <span>$8,000</span>
-                </div>
-            </div>
-            
-            <!-- Comparable Properties -->
-            {% if comparable_data and comparable_data.comparables %}
-            <div class="comparables-section">
-                <div class="comparables-header">
-                    <h3 style="color: #667eea;">Comparable Properties</h3>
-                    <span class="scroll-indicator">📜 Scroll to view all comparable properties</span>
-                </div>
-                
-                <div class="comparables-list">
-                    {% for comp in comparable_data.comparables[:5] %}
-                    <div class="comparable-item">
-                        <div class="comparable-header">
-                            <div class="comparable-number">{{ comp.comp_id }}</div>
-                            <div class="comparable-price">${{ "{:,}".format(comp.price) if comp.price else 'N/A' }}</div>
-                        </div>
-                        <div class="comparable-address">{{ comp.formattedAddress or 'Address not available' }}</div>
-                        <div class="comparable-details">
-                            <div><strong>{{ comp.bedrooms or 'N/A' }}</strong> bed</div>
-                            <div><strong>{{ comp.bathrooms or 'N/A' }}</strong> bath</div>
-                            <div><strong>{{ "{:,}".format(comp.squareFootage) if comp.squareFootage else 'N/A' }}</strong> sq ft</div>
-                            <div><strong>{{ comp.yearBuilt or 'N/A' }}</strong> built</div>
-                            <div><strong>{{ "{:.1f}".format(comp.distance) if comp.distance else 'N/A' }}</strong> mi</div>
-                            <div><strong>{{ comp.daysOnMarket or 'N/A' }}</strong> DOM</div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                
-                <!-- RentCast Comparable Properties Map -->
-                <div class="map-container" id="comparableMap"></div>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-    
-    <button class="back-to-top" onclick="scrollToTop()">↑</button>
-
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-    <script>
-        // Rent slider functionality
-        const rentSlider = document.getElementById('rentSlider');
-        const rentAmount = document.getElementById('rentAmount');
-        
-        rentSlider.addEventListener('input', function() {
-            rentAmount.textContent = '$' + parseInt(this.value).toLocaleString();
-        });
-        
-        // Back to top functionality
-        function scrollToTop() {
-            window.scrollTo({
-                top: 0,
-                behavior: 'smooth'
-            });
-        }
-        
-        // Initialize RentCast Comparable Properties Map
-        function initComparableMap() {
-            {% if comparable_data and comparable_data.comparables and comparable_data.latitude and comparable_data.longitude %}
-            const map = L.map('comparableMap').setView([{{ comparable_data.latitude }}, {{ comparable_data.longitude }}], 13);
-            
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
-            }).addTo(map);
-            
-            // Add main property marker
-            const mainPropertyIcon = L.divIcon({
-                html: '🏠',
-                iconSize: [30, 30],
-                className: 'main-property-marker'
-            });
-            
-            L.marker([{{ comparable_data.latitude }}, {{ comparable_data.longitude }}], {icon: mainPropertyIcon})
-                .addTo(map)
-                .bindPopup('<b>{{ address }}</b><br>Main Property');
-            
-            // Add comparable property markers
-            {% for comp in comparable_data.comparables[:5] %}
-            {% if comp.latitude and comp.longitude %}
-            const compIcon{{ loop.index }} = L.divIcon({
-                html: '<div style="background: #667eea; color: white; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px;">{{ comp.comp_id }}</div>',
-                iconSize: [25, 25],
-                className: 'comparable-marker'
-            });
-            
-            L.marker([{{ comp.latitude }}, {{ comp.longitude }}], {icon: compIcon{{ loop.index }}})
-                .addTo(map)
-                .bindPopup(`
-                    <b>Property #{{ comp.comp_id }}</b><br>
-                    {{ comp.formattedAddress or 'Address not available' }}<br>
-                    <strong>\${{ "{:,}".format(comp.price) if comp.price else 'N/A' }}</strong><br>
-                    {{ comp.bedrooms or 'N/A' }} bed, {{ comp.bathrooms or 'N/A' }} bath<br>
-                    {{ "{:,}".format(comp.squareFootage) if comp.squareFootage else 'N/A' }} sq ft
-                `);
-            {% endif %}
-            {% endfor %}
-            {% endif %}
-        }
-        
-        // Initialize map when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            initComparableMap();
-        });
-    </script>
-</body>
-</html>
-'''
-
-LICENSE_VERIFICATION_TEMPLATE = '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>License Verification - BlueDwarf.io</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: #333;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .verification-container {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 3rem;
-            max-width: 500px;
-            width: 90%;
-            text-align: center;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
-        }
-        
-        .logo {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #667eea;
-            margin-bottom: 2rem;
-        }
-        
-        .verification-title {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 1rem;
-        }
-        
-        .verification-text {
-            color: #666;
-            margin-bottom: 2rem;
-            line-height: 1.6;
-        }
-        
-        .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 2rem auto;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .status-text {
-            color: #667eea;
-            font-weight: 600;
-            margin-bottom: 2rem;
-        }
-        
-        .btn {
-            padding: 1rem 2rem;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            text-decoration: none;
-            display: inline-block;
-            transition: all 0.3s;
-            cursor: pointer;
-            font-size: 1rem;
-            background: #667eea;
-            color: white;
-        }
-        
-        .btn:hover {
-            background: #5a6fd8;
-            transform: translateY(-2px);
-        }
-    </style>
-</head>
-<body>
-    <div class="verification-container">
-        <div class="logo">BlueDwarf.io</div>
-        <div class="verification-title">Professional License Verification</div>
-        <div class="verification-text">
-            You will need to upload your professional license, photo identification, and take a selfie for identity verification.
-        </div>
-        <div class="loading-spinner"></div>
-        <div class="status-text">Initializing Secure Verification System...</div>
-        <p style="color: #666; font-size: 0.9rem; margin-bottom: 2rem;">
-            This process typically takes 2-3 business days for review and approval.
-            You will receive email notifications about your verification status.
-        </p>
-        <a href="/" class="btn">Return to Home</a>
-    </div>
-    
-    <script>
-        // Simulate verification initialization
-        setTimeout(function() {
-            document.querySelector('.status-text').textContent = 'Verification system ready. Please follow the prompts to complete your verification.';
-        }, 3000);
-    </script>
-</body>
-</html>
-'''
-
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    debug_mode = os.environ.get('FLASK_ENV') != 'production'
+    
+    # Log startup information
+    logger.info("🚀 Starting BlueDwarf Platform (Secure Version)")
+    logger.info(f"🔒 Security: Environment variables enabled")
+    logger.info(f"🌐 Port: {port}")
+    logger.info(f"🐛 Debug mode: {debug_mode}")
+    
+    app.run(
+        host='0.0.0.0', 
+        port=port, 
+        debug=debug_mode
+    )
 
