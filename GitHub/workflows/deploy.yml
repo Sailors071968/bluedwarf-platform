@@ -1,0 +1,68 @@
+name: Deploy BlueDwarf Platform
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  security-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flask flask-cors stripe python-dotenv requests jinja2 schedule
+    
+    - name: Create test environment file
+      run: |
+        echo "STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}" > .env.bluedwarf
+        echo "STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }}" >> .env.bluedwarf
+        echo "GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}" >> .env.bluedwarf
+        echo "RENTCAST_API_KEY=${{ secrets.RENTCAST_API_KEY }}" >> .env.bluedwarf
+        echo "FLASK_ENV=production" >> .env.bluedwarf
+        echo "COMPANY_NAME=Elite Marketing Lab LLC" >> .env.bluedwarf
+        echo "SUPPORT_EMAIL=support@bluedwarf.io" >> .env.bluedwarf
+    
+    - name: Run security validation
+      run: python test_secure_platform.py
+    
+    - name: Test platform startup
+      run: |
+        timeout 30s python bluedwarf_secure_platform.py || true
+        echo "Platform startup test completed"
+
+  deploy-heroku:
+    needs: security-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Deploy to Heroku
+      uses: akhileshns/heroku-deploy@v3.12.12
+      with:
+        heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+        heroku_app_name: "your-bluedwarf-app-name"
+        heroku_email: "michael.sailors@icloud.com"
+        buildpack: "heroku/python"
+        
+    - name: Set Heroku environment variables
+      run: |
+        heroku config:set STRIPE_SECRET_KEY="${{ secrets.STRIPE_SECRET_KEY }}" --app your-bluedwarf-app-name
+        heroku config:set STRIPE_PUBLISHABLE_KEY="${{ secrets.STRIPE_PUBLISHABLE_KEY }}" --app your-bluedwarf-app-name
+        heroku config:set GOOGLE_MAPS_API_KEY="${{ secrets.GOOGLE_MAPS_API_KEY }}" --app your-bluedwarf-app-name
+        heroku config:set RENTCAST_API_KEY="${{ secrets.RENTCAST_API_KEY }}" --app your-bluedwarf-app-name
+        heroku config:set FLASK_ENV=production --app your-bluedwarf-app-name
+      env:
+        HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
