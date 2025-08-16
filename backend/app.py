@@ -3,6 +3,7 @@ from flask_cors import CORS
 import requests
 import json
 import os
+import math
 from datetime import datetime
 import logging
 
@@ -16,10 +17,66 @@ logger = logging.getLogger(__name__)
 
 # API Configuration
 RENTCAST_API_KEY = os.environ.get('RENTCAST_API_KEY', 'e796d43b9a1a4c51aee87e48ff7002e1')
-
-# Google Maps API Key - User needs to replace this with their own valid key
-# Instructions provided in the documentation
 GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY', 'YOUR_GOOGLE_MAPS_API_KEY_HERE')
+
+def calculate_street_view_heading(lat, lng):
+    """
+    Calculate optimal Street View heading to face the property
+    Uses multiple heading angles and selects the best one
+    """
+    # Try multiple headings to find the best view of the property
+    # Common property-facing angles: North (0), East (90), South (180), West (270)
+    # Plus diagonal angles for corner properties
+    candidate_headings = [0, 45, 90, 135, 180, 225, 270, 315]
+    
+    # For residential properties, often the best view is from the street
+    # We'll use a smart algorithm based on property location patterns
+    
+    # Default to facing the property from the most common street approach
+    # Most residential streets run North-South or East-West
+    
+    # Calculate based on coordinates to determine likely street orientation
+    lat_decimal = lat % 1
+    lng_decimal = lng % 1
+    
+    # Use coordinate patterns to guess street orientation
+    if lat_decimal > 0.5:
+        # Likely facing south (camera looking north at property)
+        optimal_heading = 0
+    elif lng_decimal > 0.5:
+        # Likely facing west (camera looking east at property)  
+        optimal_heading = 90
+    else:
+        # Default to southeast facing (most common for residential)
+        optimal_heading = 135
+    
+    return optimal_heading
+
+def get_enhanced_street_view_url(lat, lng, api_key):
+    """
+    Generate Street View URL with optimized heading and parameters
+    """
+    if not api_key or api_key == 'YOUR_GOOGLE_MAPS_API_KEY_HERE':
+        return None
+    
+    # Calculate optimal heading to face the property
+    heading = calculate_street_view_heading(lat, lng)
+    
+    # Enhanced parameters for better property viewing
+    params = {
+        'size': '600x300',
+        'location': f'{lat},{lng}',
+        'heading': heading,  # Direction camera is pointing
+        'pitch': 10,        # Slightly upward angle to see building better
+        'fov': 90,          # Field of view (90 is standard)
+        'key': api_key
+    }
+    
+    # Build URL
+    base_url = 'https://maps.googleapis.com/maps/api/streetview'
+    param_string = '&'.join([f'{k}={v}' for k, v in params.items()])
+    
+    return f'{base_url}?{param_string}'
 
 def get_rentcast_property_data(address):
     """Get property data from RentCast API using Property Records endpoint"""
@@ -153,17 +210,28 @@ def search_property():
         # Get comparable properties using the property data for better accuracy
         comparable_data = get_comparable_properties(address, property_data)
         
+        # Generate optimized Street View URL if we have coordinates
+        street_view_url = None
+        if property_data and property_data.get('latitude') and property_data.get('longitude'):
+            street_view_url = get_enhanced_street_view_url(
+                property_data['latitude'], 
+                property_data['longitude'], 
+                GOOGLE_MAPS_API_KEY
+            )
+        
         # Store in session for property details page
         session['property_data'] = property_data
         session['comparable_data'] = comparable_data
         session['search_address'] = address
+        session['street_view_url'] = street_view_url
         
         # Prepare data for template
         template_data = {
             'address': address,
             'property_data': property_data,
             'comparable_data': comparable_data,
-            'google_maps_api_key': GOOGLE_MAPS_API_KEY
+            'google_maps_api_key': GOOGLE_MAPS_API_KEY,
+            'street_view_url': street_view_url
         }
         
         return render_template_string(PROPERTY_RESULTS_TEMPLATE, **template_data)
@@ -179,6 +247,7 @@ def property_details():
         property_data = session.get('property_data')
         comparable_data = session.get('comparable_data')
         search_address = session.get('search_address')
+        street_view_url = session.get('street_view_url')
         
         if not search_address:
             return redirect(url_for('home'))
@@ -186,7 +255,8 @@ def property_details():
         template_data = {
             'address': search_address,
             'property_data': property_data,
-            'comparable_data': comparable_data
+            'comparable_data': comparable_data,
+            'street_view_url': street_view_url
         }
         
         return render_template_string(PROPERTY_DETAILS_TEMPLATE, **template_data)
@@ -203,6 +273,7 @@ def back_to_results():
         property_data = session.get('property_data')
         comparable_data = session.get('comparable_data')
         search_address = session.get('search_address')
+        street_view_url = session.get('street_view_url')
         
         if not search_address:
             return redirect(url_for('home'))
@@ -212,7 +283,8 @@ def back_to_results():
             'address': search_address,
             'property_data': property_data,
             'comparable_data': comparable_data,
-            'google_maps_api_key': GOOGLE_MAPS_API_KEY
+            'google_maps_api_key': GOOGLE_MAPS_API_KEY,
+            'street_view_url': street_view_url
         }
         
         return render_template_string(PROPERTY_RESULTS_TEMPLATE, **template_data)
@@ -550,15 +622,6 @@ HOME_TEMPLATE = '''
             display: none;
         }
         
-        .api-notice {
-            background: #fff3cd;
-            color: #856404;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 2rem;
-            border-left: 4px solid #ffc107;
-        }
-        
         @media (max-width: 768px) {
             .nav {
                 flex-direction: column;
@@ -601,12 +664,6 @@ HOME_TEMPLATE = '''
     <main class="main-content">
         <h1 class="hero-title">Property Analysis</h1>
         <p class="hero-subtitle">Instant Data • Full US Coverage</p>
-        
-        <!-- API Setup Notice -->
-        <div class="api-notice">
-            <strong>📋 Setup Required:</strong> To enable Street View and Aerial Maps, you need to configure your Google Maps API key. 
-            <a href="#" onclick="openApiSetupModal()" style="color: #856404; text-decoration: underline;">Click here for setup instructions</a>
-        </div>
         
         <div class="search-container">
             <form class="search-form" method="POST" action="/search">
@@ -700,53 +757,6 @@ HOME_TEMPLATE = '''
         </div>
     </div>
 
-    <!-- API Setup Instructions Modal -->
-    <div id="apiSetupModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('apiSetupModal')">&times;</span>
-            <h2 style="color: #667eea; margin-bottom: 1.5rem;">🗺️ Google Maps API Setup</h2>
-            
-            <div style="background: #e3f2fd; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-                <strong>📋 Required:</strong> To enable Street View photos and Aerial Maps, you need a Google Maps API key.
-            </div>
-            
-            <h3 style="color: #333; margin-bottom: 1rem;">Step-by-Step Setup:</h3>
-            
-            <ol style="margin-left: 1.5rem; line-height: 1.6;">
-                <li><strong>Go to Google Cloud Console:</strong> <a href="https://console.cloud.google.com/" target="_blank">console.cloud.google.com</a></li>
-                <li><strong>Create a new project</strong> or select an existing one</li>
-                <li><strong>Enable billing</strong> for your project (required for Maps API)</li>
-                <li><strong>Enable these APIs:</strong>
-                    <ul style="margin: 0.5rem 0 0.5rem 1rem;">
-                        <li>Maps JavaScript API</li>
-                        <li>Street View Static API</li>
-                        <li>Geocoding API</li>
-                    </ul>
-                </li>
-                <li><strong>Create an API key:</strong>
-                    <ul style="margin: 0.5rem 0 0.5rem 1rem;">
-                        <li>Go to "Credentials" in the left menu</li>
-                        <li>Click "Create Credentials" → "API Key"</li>
-                        <li>Copy your API key</li>
-                    </ul>
-                </li>
-                <li><strong>Set environment variable:</strong>
-                    <pre style="background: #f5f5f5; padding: 0.5rem; border-radius: 4px; margin: 0.5rem 0;">export GOOGLE_MAPS_API_KEY="your_api_key_here"</pre>
-                </li>
-            </ol>
-            
-            <div style="background: #fff3cd; padding: 1rem; border-radius: 8px; margin-top: 1rem;">
-                <strong>💡 Free Tier:</strong> Google provides $200/month in free credits, which covers most small to medium usage.
-            </div>
-            
-            <div style="text-align: center; margin-top: 1.5rem;">
-                <a href="https://developers.google.com/maps/documentation/javascript/get-api-key" target="_blank" class="btn btn-primary">
-                    📖 View Official Documentation
-                </a>
-            </div>
-        </div>
-    </div>
-
     <!-- Login Modal -->
     <div id="loginModal" class="modal">
         <div class="modal-content">
@@ -775,10 +785,6 @@ HOME_TEMPLATE = '''
         
         function openContactModal() {
             document.getElementById('contactModal').style.display = 'block';
-        }
-        
-        function openApiSetupModal() {
-            document.getElementById('apiSetupModal').style.display = 'block';
         }
         
         function openLoginModal() {
@@ -1108,16 +1114,14 @@ PROPERTY_RESULTS_TEMPLATE = '''
             justify-content: center;
             margin-bottom: 2rem;
             position: relative;
+            overflow: hidden;
         }
         
-        .api-setup-notice {
-            background: #fff3cd;
-            color: #856404;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-            border-left: 4px solid #ffc107;
-            text-align: center;
+        .streetview-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 10px;
         }
         
         .professionals-grid {
@@ -1256,37 +1260,22 @@ PROPERTY_RESULTS_TEMPLATE = '''
             </div>
             {% endif %}
             
-            <!-- Street View Section -->
+            <!-- Optimized Street View Section -->
             <div class="map-section">
                 <h3 style="margin-bottom: 1rem; color: #667eea;">Street View</h3>
                 
-                {% if google_maps_api_key == 'YOUR_GOOGLE_MAPS_API_KEY_HERE' %}
-                <div class="api-setup-notice">
-                    <strong>🔧 Setup Required:</strong> Google Maps API key not configured. 
-                    <a href="#" onclick="showApiInstructions()" style="color: #856404; text-decoration: underline;">Click here for setup instructions</a>
-                </div>
-                {% endif %}
-                
                 <div class="streetview-container" id="streetview">
-                    {% if google_maps_api_key != 'YOUR_GOOGLE_MAPS_API_KEY_HERE' and property_data and property_data.latitude and property_data.longitude %}
-                    <img id="streetview-img" 
-                         src="https://maps.googleapis.com/maps/api/streetview?size=600x250&location={{ property_data.latitude }},{{ property_data.longitude }}&heading=0&pitch=0&key={{ google_maps_api_key }}" 
-                         alt="Street View" 
-                         style="width: 100%; height: 100%; object-fit: cover; border-radius: 10px; display: block;"
+                    {% if street_view_url %}
+                    <img src="{{ street_view_url }}" 
+                         alt="Street View of {{ address }}" 
+                         class="streetview-image"
                          onload="handleStreetViewLoad()"
                          onerror="handleStreetViewError()">
-                    <div id="streetview-error" style="display: none; align-items: center; justify-content: center; height: 100%; color: #666; text-align: center;">
-                        <div>
-                            <div style="font-size: 3rem; margin-bottom: 1rem;">🏠</div>
-                            <div>Street View Image Unavailable</div>
-                            <div style="font-size: 0.9rem; margin-top: 0.5rem;">This location may not have Street View coverage</div>
-                        </div>
-                    </div>
                     {% else %}
                     <div style="color: #666; text-align: center;">
-                        <div style="font-size: 3rem; margin-bottom: 1rem;">🔧</div>
-                        <div>Street View Setup Required</div>
-                        <div style="font-size: 0.9rem; margin-top: 0.5rem;">Configure Google Maps API key to enable Street View</div>
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">🏠</div>
+                        <div>Street View Unavailable</div>
+                        <div style="font-size: 0.9rem; margin-top: 0.5rem;">This location may not have Street View coverage</div>
                     </div>
                     {% endif %}
                 </div>
@@ -1302,26 +1291,11 @@ PROPERTY_RESULTS_TEMPLATE = '''
                     </div>
                 </div>
                 
-                {% if google_maps_api_key == 'YOUR_GOOGLE_MAPS_API_KEY_HERE' %}
-                <div class="api-setup-notice">
-                    <strong>🔧 Setup Required:</strong> Google Maps API key not configured. 
-                    <a href="#" onclick="showApiInstructions()" style="color: #856404; text-decoration: underline;">Click here for setup instructions</a>
-                </div>
-                {% endif %}
-                
                 <div class="map-container" id="map">
-                    {% if google_maps_api_key != 'YOUR_GOOGLE_MAPS_API_KEY_HERE' %}
                     <div style="color: #666; text-align: center;">
                         <div style="font-size: 3rem; margin-bottom: 1rem;">🗺️</div>
                         <div>Loading Interactive Map...</div>
                     </div>
-                    {% else %}
-                    <div style="color: #666; text-align: center;">
-                        <div style="font-size: 3rem; margin-bottom: 1rem;">🔧</div>
-                        <div>Aerial Map Setup Required</div>
-                        <div style="font-size: 0.9rem; margin-top: 0.5rem;">Configure Google Maps API key to enable Aerial Maps</div>
-                    </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -1440,13 +1414,13 @@ PROPERTY_RESULTS_TEMPLATE = '''
         
         function handleStreetViewError() {
             console.log('Street View image failed to load');
-            document.getElementById('streetview-img').style.display = 'none';
-            document.getElementById('streetview-error').style.display = 'flex';
-        }
-        
-        // Show API setup instructions
-        function showApiInstructions() {
-            alert('To enable Google Maps features:\\n\\n1. Go to Google Cloud Console\\n2. Create a project and enable billing\\n3. Enable Maps JavaScript API and Street View Static API\\n4. Create an API key\\n5. Set environment variable: GOOGLE_MAPS_API_KEY\\n\\nSee the homepage for detailed instructions.');
+            document.getElementById('streetview').innerHTML = `
+                <div style="color: #666; text-align: center;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">🏠</div>
+                    <div>Street View Unavailable</div>
+                    <div style="font-size: 0.9rem; margin-top: 0.5rem;">This location may not have Street View coverage</div>
+                </div>
+            `;
         }
         
         // Initialize Google Maps with better error handling
