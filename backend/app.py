@@ -316,6 +316,79 @@ def home():
             background: #5a67d8;
         }
         
+        /* Registration Modal Styles */
+        .registration-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        
+        .registration-content {
+            background-color: white;
+            margin: 2% auto;
+            padding: 40px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 700px;
+            position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .registration-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .form-input, .form-select {
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .btn-submit {
+            background: #667eea;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+        
+        .btn-submit:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+        
         /* Responsive Design */
         @media (max-width: 768px) {
             .header {
@@ -343,6 +416,10 @@ def home():
             .button-group {
                 flex-direction: column;
             }
+            
+            .form-row {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -360,7 +437,7 @@ def home():
         
         <div class="nav-right">
             <a href="/login" class="btn btn-login">Login</a>
-            <a href="/register" class="btn btn-primary">Get Started</a>
+            <a href="#" class="btn btn-primary" onclick="openRegistrationModal()">Get Started</a>
         </div>
     </header>
     
@@ -448,6 +525,89 @@ def home():
         </div>
     </div>
     
+    <!-- Registration Modal -->
+    <div id="registrationModal" class="registration-modal">
+        <div class="registration-content">
+            <span class="close" onclick="closeRegistrationModal()">&times;</span>
+            <div style="text-align: center; margin-bottom: 30px;">
+                <h2 style="color: #333; margin-bottom: 10px;">Professional Registration</h2>
+                <p style="color: #666;">Join our network of verified professionals</p>
+            </div>
+            
+            <form class="registration-form" onsubmit="submitRegistration(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label style="font-weight: 600; color: #333;">Full Name *</label>
+                        <input type="text" name="full_name" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight: 600; color: #333;">Phone Number *</label>
+                        <input type="tel" name="phone" class="form-input" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label style="font-weight: 600; color: #333;">Email Address *</label>
+                    <input type="email" name="email" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label style="font-weight: 600; color: #333;">Business Address *</label>
+                    <input type="text" name="business_address" class="form-input" required>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label style="font-weight: 600; color: #333;">License Number *</label>
+                        <input type="text" name="license_number" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight: 600; color: #333;">Website Domain</label>
+                        <input type="url" name="domain" class="form-input" placeholder="https://yourwebsite.com">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label style="font-weight: 600; color: #333;">Profession *</label>
+                    <select name="profession" class="form-select" required>
+                        <option value="">Select your profession</option>
+                        <option value="real_estate_agent">Real Estate Agent</option>
+                        <option value="mortgage_lender">Mortgage Lender</option>
+                        <option value="real_estate_attorney">Real Estate Attorney</option>
+                        <option value="property_inspector">Property Inspector</option>
+                        <option value="insurance_agent">Insurance Agent</option>
+                        <option value="property_manager">Property Manager</option>
+                        <option value="contractor">General Contractor</option>
+                        <option value="electrician">Electrician</option>
+                        <option value="plumber">Plumber</option>
+                        <option value="hvac_technician">HVAC Technician</option>
+                        <option value="landscaper">Landscaper</option>
+                        <option value="roofer">Roofer</option>
+                        <option value="painter">Painter</option>
+                        <option value="flooring_specialist">Flooring Specialist</option>
+
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label style="font-weight: 600; color: #333;">Service ZIP Codes *</label>
+                    <input type="text" name="service_zip_codes" class="form-input" 
+                           placeholder="95814, 95815, 95816" 
+                           title="Enter ZIP codes separated by commas" required>
+                </div>
+                
+                <div class="form-group">
+                    <label style="font-weight: 600; color: #333;">Password *</label>
+                    <input type="password" name="password" class="form-input" required>
+                </div>
+                
+                <button type="submit" class="btn-submit">
+                    Continue to License Verification →
+                </button>
+            </form>
+        </div>
+    </div>
+    
     <script>
         function clearForm() {
             document.querySelector('.address-input').value = '';
@@ -461,9 +621,29 @@ def home():
             document.getElementById(modalId).style.display = 'none';
         }
         
+        function openRegistrationModal() {
+            document.getElementById('registrationModal').style.display = 'block';
+        }
+        
+        function closeRegistrationModal() {
+            document.getElementById('registrationModal').style.display = 'none';
+        }
+        
+        function submitRegistration(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const email = formData.get('email');
+            
+            // Close registration modal
+            closeRegistrationModal();
+            
+            // Redirect to license verification
+            window.location.href = '/verify-license?email=' + encodeURIComponent(email);
+        }
+        
         // Close modal when clicking outside
         window.onclick = function(event) {
-            if (event.target.classList.contains('modal')) {
+            if (event.target.classList.contains('modal') || event.target.classList.contains('registration-modal')) {
                 event.target.style.display = 'none';
             }
         }
@@ -471,7 +651,7 @@ def home():
         // Close modal with Escape key
         document.addEventListener('keydown', function(event) {
             if (event.key === 'Escape') {
-                const modals = document.querySelectorAll('.modal');
+                const modals = document.querySelectorAll('.modal, .registration-modal');
                 modals.forEach(modal => {
                     if (modal.style.display === 'block') {
                         modal.style.display = 'none';
@@ -500,57 +680,85 @@ def clear_results():
 def property_results():
     address = request.form.get('address', '')
     
-    # Mock property data (replace with real API calls)
+    # Enhanced property data with more details
     property_data = {
         'address': address,
         'estimated_value': '$500,000',
         'bedrooms': '4',
-        'bathrooms': '2',
+        'bathrooms': '2.5',
         'square_feet': '1,492',
         'year_built': '1964',
-        'monthly_rent': '$3,000'
+        'monthly_rent': '$3,000',
+        'lot_size': '0.18 acres',
+        'property_type': 'Single Family Home',
+        'parking': '2-car garage',
+        'heating': 'Central Air/Heat',
+        'cooling': 'Central Air',
+        'flooring': 'Hardwood, Carpet',
+        'roof': 'Composition Shingle',
+        'exterior': 'Stucco',
+        'last_sold': 'March 2019',
+        'last_sold_price': '$425,000',
+        'price_per_sqft': '$335',
+        'hoa_fees': 'None',
+        'property_tax': '$6,250/year',
+        'zoning': 'Residential R-1'
     }
     
     # Extract city and state from address
     city_state = "Sacramento, CA"  # This should be parsed from the address
     
-    # Mock professionals data
+    # Enhanced professionals data - 10 categories, no verification badges
     professionals = [
         {
             'title': 'Real Estate Agent',
             'location': city_state,
-            'description': 'Experienced agent specializing in residential properties and first-time buyers',
-            'verified': True
+            'description': 'Experienced agent specializing in residential properties and first-time buyers'
         },
         {
             'title': 'Mortgage Lender',
             'location': city_state,
-            'description': 'Specialized in home loans and refinancing with competitive rates',
-            'verified': True
+            'description': 'Specialized in home loans and refinancing with competitive rates'
         },
         {
             'title': 'Real Estate Attorney',
             'location': city_state,
-            'description': 'Expert in real estate transactions and contract negotiations',
-            'verified': False
+            'description': 'Expert in real estate transactions and contract negotiations'
         },
         {
             'title': 'Property Inspector',
             'location': city_state,
-            'description': 'Certified home inspector with comprehensive inspection services',
-            'verified': True
+            'description': 'Certified home inspector with comprehensive inspection services'
         },
         {
             'title': 'Insurance Agent',
             'location': city_state,
-            'description': 'Home and auto insurance specialist with competitive coverage options',
-            'verified': False
+            'description': 'Home and auto insurance specialist with competitive coverage options'
         },
         {
             'title': 'Property Manager',
             'location': city_state,
-            'description': 'Professional property management services for residential and commercial properties',
-            'verified': True
+            'description': 'Professional property management services for residential and commercial properties'
+        },
+        {
+            'title': 'General Contractor',
+            'location': city_state,
+            'description': 'Licensed general contractor for home renovations and construction projects'
+        },
+        {
+            'title': 'HVAC Technician',
+            'location': city_state,
+            'description': 'Heating, ventilation, and air conditioning installation and repair services'
+        },
+        {
+            'title': 'Electrician',
+            'location': city_state,
+            'description': 'Licensed electrician for residential and commercial electrical work'
+        },
+        {
+            'title': 'Plumber',
+            'location': city_state,
+            'description': 'Professional plumbing services for repairs, installations, and maintenance'
         }
     ]
     
@@ -756,14 +964,14 @@ def property_results():
             list-style: none;
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 12px;
         }
         
         .property-list li {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 0;
+            padding: 8px 0;
             border-bottom: 1px solid #f0f0f0;
         }
         
@@ -791,14 +999,46 @@ def property_results():
             font-size: 1.1rem;
         }
         
-        .visual-placeholder {
-            background: #f8f9fa;
-            border: 2px dashed #dee2e6;
+        .street-view-container {
+            width: 100%;
+            height: 200px;
             border-radius: 8px;
-            padding: 40px;
-            text-align: center;
-            color: #6c757d;
-            font-weight: 500;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+        
+        .street-view-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .map-container {
+            width: 100%;
+            height: 200px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .map-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .map-btn {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .map-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
         }
         
         .btn-view-details {
@@ -863,23 +1103,6 @@ def property_results():
             font-weight: 600;
             color: #333;
             font-size: 1.1rem;
-        }
-        
-        .verification-badge {
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            font-weight: 600;
-        }
-        
-        .verified {
-            background: #d4edda;
-            color: #155724;
-        }
-        
-        .unverified {
-            background: #f8d7da;
-            color: #721c24;
         }
         
         .professional-location {
@@ -993,7 +1216,7 @@ def property_results():
         
         <div class="nav-right">
             <a href="/login" class="btn btn-login">Login</a>
-            <a href="/register" class="btn btn-primary">Get Started</a>
+            <a href="#" class="btn btn-primary" onclick="openRegistrationModal()">Get Started</a>
         </div>
     </header>
     
@@ -1031,6 +1254,10 @@ def property_results():
                         <span class="property-value">{{ property_data.estimated_value }}</span>
                     </li>
                     <li>
+                        <span class="property-label">Property Type:</span>
+                        <span class="property-value">{{ property_data.property_type }}</span>
+                    </li>
+                    <li>
                         <span class="property-label">Bedrooms:</span>
                         <span class="property-value">{{ property_data.bedrooms }}</span>
                     </li>
@@ -1043,12 +1270,32 @@ def property_results():
                         <span class="property-value">{{ property_data.square_feet }}</span>
                     </li>
                     <li>
+                        <span class="property-label">Lot Size:</span>
+                        <span class="property-value">{{ property_data.lot_size }}</span>
+                    </li>
+                    <li>
                         <span class="property-label">Year Built:</span>
                         <span class="property-value">{{ property_data.year_built }}</span>
                     </li>
                     <li>
+                        <span class="property-label">Parking:</span>
+                        <span class="property-value">{{ property_data.parking }}</span>
+                    </li>
+                    <li>
+                        <span class="property-label">Heating/Cooling:</span>
+                        <span class="property-value">{{ property_data.heating }}</span>
+                    </li>
+                    <li>
                         <span class="property-label">Monthly Rent Est:</span>
                         <span class="property-value">{{ property_data.monthly_rent }}</span>
+                    </li>
+                    <li>
+                        <span class="property-label">Price per Sq Ft:</span>
+                        <span class="property-value">{{ property_data.price_per_sqft }}</span>
+                    </li>
+                    <li>
+                        <span class="property-label">Property Tax:</span>
+                        <span class="property-value">{{ property_data.property_tax }}</span>
                     </li>
                 </ul>
             </div>
@@ -1056,15 +1303,21 @@ def property_results():
             <div class="property-visuals">
                 <div class="visual-section">
                     <h4>Street View</h4>
-                    <img src="https://maps.googleapis.com/maps/api/streetview?size=400x300&location={{ property_data.address }}&key=YOUR_GOOGLE_MAPS_API_KEY" 
-                         alt="Street View" style="width: 100%; border-radius: 8px;" 
-                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                    <div class="visual-placeholder" style="display: none;">Street View Image</div>
+                    <div class="street-view-container">
+                        <img src="https://maps.googleapis.com/maps/api/streetview?size=400x200&location={{ property_data.address }}&key=AIzaSyBFw0Qbyq9zTFTd-tUY6dOWTgHz-TK7VgM" 
+                             alt="Street View of {{ property_data.address }}" 
+                             class="street-view-image"
+                             onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzZjNzU3ZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkdvb2dsZSBTdHJlZXQgVmlldyBJbWFnZTwvdGV4dD48L3N2Zz4=';">
+                    </div>
                 </div>
                 
                 <div class="visual-section">
                     <h4>Aerial View (2 blocks)</h4>
-                    <div id="map" style="width: 100%; height: 200px; border-radius: 8px;"></div>
+                    <div class="map-controls">
+                        <button class="map-btn active" onclick="setMapType('roadmap')">Map</button>
+                        <button class="map-btn" onclick="setMapType('satellite')">Satellite</button>
+                    </div>
+                    <div id="map" class="map-container"></div>
                 </div>
                 
                 <button class="btn-view-details" onclick="viewDetails('{{ property_data.address }}')">View Details</button>
@@ -1079,9 +1332,6 @@ def property_results():
                 <div class="professional-card">
                     <div class="professional-header">
                         <h3 class="professional-title">{{ professional.title }}</h3>
-                        <span class="verification-badge {{ 'verified' if professional.verified else 'unverified' }}">
-                            {{ '✅ Verified' if professional.verified else '❌ Unverified' }}
-                        </span>
                     </div>
                     <div class="professional-location">{{ professional.location }}</div>
                     <div class="professional-description">{{ professional.description }}</div>
@@ -1106,13 +1356,28 @@ def property_results():
     </footer>
     
     <script>
+        let map;
+        let currentMapType = 'roadmap';
+        
         function clearAllResults() {
-            // Redirect to clear results route which will take user back to homepage
             window.location.href = '/clear-results';
         }
         
         function viewDetails(address) {
             window.location.href = '/property-details?address=' + encodeURIComponent(address);
+        }
+        
+        function setMapType(type) {
+            currentMapType = type;
+            if (map) {
+                map.setMapTypeId(type);
+            }
+            
+            // Update button states
+            document.querySelectorAll('.map-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
         }
         
         // Initialize Google Map
@@ -1122,39 +1387,43 @@ def property_results():
             
             geocoder.geocode({ address: address }, function(results, status) {
                 if (status === 'OK') {
-                    const map = new google.maps.Map(document.getElementById('map'), {
+                    map = new google.maps.Map(document.getElementById('map'), {
                         zoom: 16,
                         center: results[0].geometry.location,
-                        mapTypeId: 'satellite'
+                        mapTypeId: currentMapType,
+                        mapTypeControl: false,
+                        streetViewControl: false,
+                        fullscreenControl: false
                     });
                     
                     new google.maps.Marker({
                         position: results[0].geometry.location,
                         map: map,
-                        title: address
+                        title: address,
+                        icon: {
+                            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="10" fill="#ff6b6b" stroke="white" stroke-width="2"/><text x="15" y="19" text-anchor="middle" fill="white" font-size="10" font-weight="bold">🏠</text></svg>'),
+                            scaledSize: new google.maps.Size(30, 30)
+                        }
                     });
-                    
-                    // Add map type controls
-                    const mapTypeControl = document.createElement('div');
-                    mapTypeControl.style.margin = '10px';
-                    
-                    const mapButton = document.createElement('button');
-                    mapButton.textContent = 'Map';
-                    mapButton.style.marginRight = '5px';
-                    mapButton.onclick = () => map.setMapTypeId('roadmap');
-                    
-                    const satelliteButton = document.createElement('button');
-                    satelliteButton.textContent = 'Satellite';
-                    satelliteButton.onclick = () => map.setMapTypeId('satellite');
-                    
-                    mapTypeControl.appendChild(mapButton);
-                    mapTypeControl.appendChild(satelliteButton);
-                    map.controls[google.maps.ControlPosition.TOP_RIGHT].push(mapTypeControl);
+                } else {
+                    // Fallback if geocoding fails
+                    document.getElementById('map').innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #f8f9fa; color: #6c757d; border-radius: 8px;">Interactive Map Loading...</div>';
                 }
             });
         }
+        
+        // Load Google Maps API
+        function loadGoogleMaps() {
+            const script = document.createElement('script');
+            script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dOWTgHz-TK7VgM&callback=initMap';
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+        }
+        
+        // Initialize map when page loads
+        window.addEventListener('load', loadGoogleMaps);
     </script>
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initMap"></script>
 </body>
 </html>
     ''', property_data=property_data, professionals=professionals, city_state=city_state)
@@ -1163,18 +1432,39 @@ def property_results():
 def property_details():
     address = request.args.get('address', '')
     
-    # Mock property data
+    # Enhanced property data with comprehensive details
     property_data = {
         'address': address,
         'estimated_value': '$500,000',
         'bedrooms': '4',
-        'bathrooms': '2',
+        'bathrooms': '2.5',
         'square_feet': '1,492',
         'year_built': '1964',
-        'monthly_rent': '$3,000'
+        'monthly_rent': '$3,000',
+        'lot_size': '0.18 acres',
+        'property_type': 'Single Family Home',
+        'parking': '2-car garage',
+        'heating': 'Central Air/Heat',
+        'cooling': 'Central Air',
+        'flooring': 'Hardwood, Carpet',
+        'roof': 'Composition Shingle',
+        'exterior': 'Stucco',
+        'last_sold': 'March 2019',
+        'last_sold_price': '$425,000',
+        'price_per_sqft': '$335',
+        'hoa_fees': 'None',
+        'property_tax': '$6,250/year',
+        'zoning': 'Residential R-1',
+        'school_district': 'Sacramento City Unified',
+        'elementary_school': 'John Bidwell Elementary',
+        'middle_school': 'Kit Carson Middle School',
+        'high_school': 'McClatchy High School',
+        'walk_score': '72 - Very Walkable',
+        'transit_score': '45 - Some Transit',
+        'bike_score': '68 - Bikeable'
     }
     
-    # Mock comparable properties data
+    # Enhanced comparable properties data with more details
     comparable_properties = [
         {
             'id': 1,
@@ -1186,6 +1476,9 @@ def property_details():
             'year_built': '1962',
             'days_on_market': '45',
             'distance': '0.1 miles',
+            'price_per_sqft': '$344',
+            'lot_size': '0.15 acres',
+            'last_sold': 'January 2024',
             'lat': 38.5816,
             'lng': -121.4944
         },
@@ -1199,6 +1492,9 @@ def property_details():
             'year_built': '1968',
             'days_on_market': '32',
             'distance': '0.3 miles',
+            'price_per_sqft': '$318',
+            'lot_size': '0.22 acres',
+            'last_sold': 'November 2023',
             'lat': 38.5820,
             'lng': -121.4950
         },
@@ -1212,8 +1508,43 @@ def property_details():
             'year_built': '1960',
             'days_on_market': '67',
             'distance': '0.5 miles',
+            'price_per_sqft': '$360',
+            'lot_size': '0.12 acres',
+            'last_sold': 'September 2023',
             'lat': 38.5825,
             'lng': -121.4935
+        },
+        {
+            'id': 4,
+            'address': '321 Elm Drive, Sacramento, CA',
+            'estimated_value': '$510,000',
+            'bedrooms': '4',
+            'bathrooms': '2.5',
+            'square_feet': '1,580',
+            'year_built': '1965',
+            'days_on_market': '28',
+            'distance': '0.7 miles',
+            'price_per_sqft': '$323',
+            'lot_size': '0.19 acres',
+            'last_sold': 'February 2024',
+            'lat': 38.5810,
+            'lng': -121.4940
+        },
+        {
+            'id': 5,
+            'address': '654 Maple Court, Sacramento, CA',
+            'estimated_value': '$485,000',
+            'bedrooms': '3',
+            'bathrooms': '2.5',
+            'square_feet': '1,420',
+            'year_built': '1963',
+            'days_on_market': '51',
+            'distance': '0.9 miles',
+            'price_per_sqft': '$342',
+            'lot_size': '0.16 acres',
+            'last_sold': 'December 2023',
+            'lat': 38.5805,
+            'lng': -121.4955
         }
     ]
     
@@ -1317,20 +1648,68 @@ def property_details():
             margin-bottom: 10px;
         }
         
-        .back-button {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 1rem;
-            margin-bottom: 20px;
-            transition: background 0.3s;
+        /* Enhanced Property Details Section */
+        .enhanced-details {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
         }
         
-        .back-button:hover {
-            background: rgba(255, 255, 255, 0.3);
+        .enhanced-details h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+        
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+        
+        .detail-section {
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .detail-section h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+        
+        .detail-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .detail-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .detail-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .detail-label {
+            font-weight: 600;
+            color: #555;
+            font-size: 0.9rem;
+        }
+        
+        .detail-value {
+            font-weight: 500;
+            color: #333;
+            font-size: 0.9rem;
         }
         
         /* Rent Estimation Section */
@@ -1400,6 +1779,8 @@ def property_details():
             border-radius: 12px;
             padding: 30px;
             box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            max-height: 600px;
+            overflow-y: auto;
         }
         
         .section-title {
@@ -1410,17 +1791,18 @@ def property_details():
         
         #comparables-map {
             width: 100%;
-            height: 400px;
+            height: 500px;
             border-radius: 8px;
         }
         
         .comparable-card {
             border: 1px solid #e1e5e9;
             border-radius: 8px;
-            padding: 20px;
+            padding: 15px;
             margin-bottom: 15px;
             transition: all 0.3s;
             position: relative;
+            cursor: pointer;
         }
         
         .comparable-card:hover {
@@ -1434,42 +1816,44 @@ def property_details():
             left: 15px;
             background: #667eea;
             color: white;
-            width: 30px;
-            height: 30px;
+            width: 25px;
+            height: 25px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: bold;
-            font-size: 0.9rem;
+            font-size: 0.8rem;
         }
         
         .comparable-address {
             font-weight: 600;
             color: #333;
-            margin-bottom: 10px;
-            margin-top: 10px;
+            margin-bottom: 8px;
+            margin-top: 8px;
+            font-size: 0.95rem;
         }
         
         .comparable-value {
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: 600;
             color: #667eea;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
         
         .comparable-specs {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
-            font-size: 0.9rem;
+            gap: 6px;
+            font-size: 0.85rem;
             color: #666;
+            margin-bottom: 8px;
         }
         
         .comparable-distance {
             color: #28a745;
             font-weight: 500;
-            margin-top: 10px;
+            font-size: 0.9rem;
         }
         
         /* Footer */
@@ -1498,6 +1882,10 @@ def property_details():
                 flex-direction: column;
                 align-items: stretch;
             }
+            
+            .details-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -1524,6 +1912,63 @@ def property_details():
             <h1 class="page-title">{{ property_data.address }}</h1>
         </div>
         
+        <!-- Enhanced Property Details Section -->
+        <section class="enhanced-details">
+            <h2>📋 Comprehensive Property Information</h2>
+            <div class="details-grid">
+                <div class="detail-section">
+                    <h3>🏠 Basic Information</h3>
+                    <ul class="detail-list">
+                        <li><span class="detail-label">Property Type:</span><span class="detail-value">{{ property_data.property_type }}</span></li>
+                        <li><span class="detail-label">Estimated Value:</span><span class="detail-value">{{ property_data.estimated_value }}</span></li>
+                        <li><span class="detail-label">Bedrooms:</span><span class="detail-value">{{ property_data.bedrooms }}</span></li>
+                        <li><span class="detail-label">Bathrooms:</span><span class="detail-value">{{ property_data.bathrooms }}</span></li>
+                        <li><span class="detail-label">Square Feet:</span><span class="detail-value">{{ property_data.square_feet }}</span></li>
+                        <li><span class="detail-label">Lot Size:</span><span class="detail-value">{{ property_data.lot_size }}</span></li>
+                        <li><span class="detail-label">Year Built:</span><span class="detail-value">{{ property_data.year_built }}</span></li>
+                    </ul>
+                </div>
+                
+                <div class="detail-section">
+                    <h3>💰 Financial Information</h3>
+                    <ul class="detail-list">
+                        <li><span class="detail-label">Monthly Rent Est:</span><span class="detail-value">{{ property_data.monthly_rent }}</span></li>
+                        <li><span class="detail-label">Price per Sq Ft:</span><span class="detail-value">{{ property_data.price_per_sqft }}</span></li>
+                        <li><span class="detail-label">Last Sold:</span><span class="detail-value">{{ property_data.last_sold }}</span></li>
+                        <li><span class="detail-label">Last Sold Price:</span><span class="detail-value">{{ property_data.last_sold_price }}</span></li>
+                        <li><span class="detail-label">Property Tax:</span><span class="detail-value">{{ property_data.property_tax }}</span></li>
+                        <li><span class="detail-label">HOA Fees:</span><span class="detail-value">{{ property_data.hoa_fees }}</span></li>
+                    </ul>
+                </div>
+                
+                <div class="detail-section">
+                    <h3>🏗️ Property Features</h3>
+                    <ul class="detail-list">
+                        <li><span class="detail-label">Parking:</span><span class="detail-value">{{ property_data.parking }}</span></li>
+                        <li><span class="detail-label">Heating:</span><span class="detail-value">{{ property_data.heating }}</span></li>
+                        <li><span class="detail-label">Cooling:</span><span class="detail-value">{{ property_data.cooling }}</span></li>
+                        <li><span class="detail-label">Flooring:</span><span class="detail-value">{{ property_data.flooring }}</span></li>
+                        <li><span class="detail-label">Roof:</span><span class="detail-value">{{ property_data.roof }}</span></li>
+                        <li><span class="detail-label">Exterior:</span><span class="detail-value">{{ property_data.exterior }}</span></li>
+                        <li><span class="detail-label">Zoning:</span><span class="detail-value">{{ property_data.zoning }}</span></li>
+                    </ul>
+                </div>
+                
+                <div class="detail-section">
+                    <h3>🎓 Schools & Walkability</h3>
+                    <ul class="detail-list">
+                        <li><span class="detail-label">School District:</span><span class="detail-value">{{ property_data.school_district }}</span></li>
+                        <li><span class="detail-label">Elementary:</span><span class="detail-value">{{ property_data.elementary_school }}</span></li>
+                        <li><span class="detail-label">Middle School:</span><span class="detail-value">{{ property_data.middle_school }}</span></li>
+                        <li><span class="detail-label">High School:</span><span class="detail-value">{{ property_data.high_school }}</span></li>
+                        <li><span class="detail-label">Walk Score:</span><span class="detail-value">{{ property_data.walk_score }}</span></li>
+                        <li><span class="detail-label">Transit Score:</span><span class="detail-value">{{ property_data.transit_score }}</span></li>
+                        <li><span class="detail-label">Bike Score:</span><span class="detail-value">{{ property_data.bike_score }}</span></li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+        
         <!-- Rent Estimation Section -->
         <section class="rent-section">
             <h2>💰 Rent Estimation</h2>
@@ -1545,7 +1990,7 @@ def property_details():
             <div class="comparables-list">
                 <h3 class="section-title">🏘️ Comparable Properties (1.5 mile radius)</h3>
                 {% for comp in comparable_properties %}
-                <div class="comparable-card" id="card-{{ comp.id }}">
+                <div class="comparable-card" id="card-{{ comp.id }}" onclick="highlightProperty({{ comp.id }})">
                     <div class="comparable-number">{{ comp.id }}</div>
                     <div class="comparable-address">{{ comp.address }}</div>
                     <div class="comparable-value">{{ comp.estimated_value }}</div>
@@ -1554,9 +1999,12 @@ def property_details():
                         <div>🚿 {{ comp.bathrooms }} baths</div>
                         <div>📐 {{ comp.square_feet }} sq ft</div>
                         <div>📅 Built {{ comp.year_built }}</div>
+                        <div>💰 {{ comp.price_per_sqft }}/sq ft</div>
                         <div>📊 {{ comp.days_on_market }} days on market</div>
-                        <div class="comparable-distance">📍 {{ comp.distance }}</div>
+                        <div>📏 {{ comp.lot_size }} lot</div>
+                        <div>📅 Sold {{ comp.last_sold }}</div>
                     </div>
+                    <div class="comparable-distance">📍 {{ comp.distance }}</div>
                 </div>
                 {% endfor %}
             </div>
@@ -1570,12 +2018,29 @@ def property_details():
     </footer>
     
     <script>
+        let map;
+        let markers = [];
+        let infoWindows = [];
+        
         function goBack() {
             window.history.back();
         }
         
         function updateRent(value) {
             document.getElementById('rentDisplay').textContent = '$' + parseInt(value).toLocaleString();
+        }
+        
+        function highlightProperty(propertyId) {
+            // Highlight corresponding card
+            document.querySelectorAll('.comparable-card').forEach(card => {
+                card.style.border = '1px solid #e1e5e9';
+            });
+            document.getElementById('card-' + propertyId).style.border = '2px solid #667eea';
+            
+            // Trigger marker click if map is loaded
+            if (markers[propertyId - 1]) {
+                google.maps.event.trigger(markers[propertyId - 1], 'click');
+            }
         }
         
         // Initialize Google Map with comparable properties
@@ -1585,10 +2050,13 @@ def property_details():
                 lng: -121.4944
             };
             
-            const map = new google.maps.Map(document.getElementById('comparables-map'), {
-                zoom: 15,
+            map = new google.maps.Map(document.getElementById('comparables-map'), {
+                zoom: 14,
                 center: mainProperty,
-                mapTypeId: 'roadmap'
+                mapTypeId: 'roadmap',
+                mapTypeControl: true,
+                streetViewControl: false,
+                fullscreenControl: false
             });
             
             // Main property marker
@@ -1605,7 +2073,7 @@ def property_details():
             // Comparable properties markers
             const comparables = {{ comparable_properties | tojsonfilter }};
             
-            comparables.forEach(function(comp) {
+            comparables.forEach(function(comp, index) {
                 const marker = new google.maps.Marker({
                     position: { lat: comp.lat, lng: comp.lng },
                     map: map,
@@ -1616,361 +2084,51 @@ def property_details():
                     }
                 });
                 
-                // Info window for each marker
+                markers.push(marker);
+                
+                // Enhanced info window for each marker
                 const infoWindow = new google.maps.InfoWindow({
-                    content: '<div style="padding: 10px;"><strong>' + comp.address + '</strong><br>' +
-                            '<span style="color: #667eea; font-weight: 600;">' + comp.estimated_value + '</span><br>' +
-                            comp.bedrooms + ' beds • ' + comp.bathrooms + ' baths • ' + comp.square_feet + ' sq ft<br>' +
-                            '<span style="color: #28a745;">' + comp.distance + ' away</span></div>'
+                    content: '<div style="padding: 15px; max-width: 300px;"><strong style="color: #333; font-size: 1.1rem;">' + comp.address + '</strong><br><br>' +
+                            '<span style="color: #667eea; font-weight: 600; font-size: 1.2rem;">' + comp.estimated_value + '</span><br>' +
+                            '<div style="margin: 10px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.9rem;">' +
+                            '<div>🛏️ ' + comp.bedrooms + ' beds</div><div>🚿 ' + comp.bathrooms + ' baths</div>' +
+                            '<div>📐 ' + comp.square_feet + ' sq ft</div><div>📅 Built ' + comp.year_built + '</div>' +
+                            '<div>💰 ' + comp.price_per_sqft + '/sq ft</div><div>📏 ' + comp.lot_size + ' lot</div>' +
+                            '</div>' +
+                            '<div style="color: #28a745; font-weight: 500; margin-top: 8px;">📍 ' + comp.distance + ' away</div>' +
+                            '<div style="color: #666; font-size: 0.85rem; margin-top: 5px;">Last sold: ' + comp.last_sold + '</div></div>'
                 });
                 
+                infoWindows.push(infoWindow);
+                
                 marker.addListener('click', function() {
+                    // Close all other info windows
+                    infoWindows.forEach(iw => iw.close());
+                    
+                    // Open this info window
                     infoWindow.open(map, marker);
                     
                     // Highlight corresponding card
-                    document.querySelectorAll('.comparable-card').forEach(card => {
-                        card.style.border = '1px solid #e1e5e9';
-                    });
-                    document.getElementById('card-' + comp.id).style.border = '2px solid #667eea';
+                    highlightProperty(comp.id);
                 });
             });
         }
         
-        // Highlight map marker when card is clicked
-        document.querySelectorAll('.comparable-card').forEach(function(card) {
-            card.addEventListener('click', function() {
-                const cardId = this.id.split('-')[1];
-                // You could trigger the corresponding marker click here
-                document.querySelectorAll('.comparable-card').forEach(c => {
-                    c.style.border = '1px solid #e1e5e9';
-                });
-                this.style.border = '2px solid #667eea';
-            });
-        });
+        // Load Google Maps API
+        function loadGoogleMaps() {
+            const script = document.createElement('script');
+            script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dOWTgHz-TK7VgM&callback=initMap';
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+        }
+        
+        // Initialize map when page loads
+        window.addEventListener('load', loadGoogleMaps);
     </script>
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initMap"></script>
 </body>
 </html>
     ''', property_data=property_data, comparable_properties=comparable_properties)
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        # Get form data
-        form_data = {
-            'full_name': request.form.get('full_name'),
-            'phone': request.form.get('phone'),
-            'email': request.form.get('email'),
-            'business_address': request.form.get('business_address'),
-            'license_number': request.form.get('license_number'),
-            'domain': request.form.get('domain'),
-            'profession': request.form.get('profession'),
-            'service_zip_codes': request.form.get('service_zip_codes'),
-            'password': request.form.get('password')
-        }
-        
-        # Store in session or database (for demo, we'll redirect to verification)
-        return redirect(url_for('verify_license', email=form_data['email']))
-    
-    return render_template_string('''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Professional Registration - BlueDwarf</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: #333;
-        }
-        
-        /* Header Navigation */
-        .header {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            padding: 20px 40px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        .logo {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: white;
-            text-decoration: none;
-        }
-        
-        .nav-center {
-            display: flex;
-            gap: 30px;
-        }
-        
-        .nav-link {
-            color: white;
-            text-decoration: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            transition: background 0.3s;
-        }
-        
-        .nav-link:hover {
-            background: rgba(255, 255, 255, 0.1);
-        }
-        
-        .nav-right {
-            display: flex;
-            gap: 15px;
-        }
-        
-        .btn {
-            padding: 10px 20px;
-            border-radius: 6px;
-            text-decoration: none;
-            font-weight: 500;
-            transition: all 0.3s;
-            border: none;
-            cursor: pointer;
-        }
-        
-        .btn-login {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-        }
-        
-        .btn-login:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-        
-        /* Main Content */
-        .main-content {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: calc(100vh - 200px);
-            padding: 40px 20px;
-        }
-        
-        .registration-card {
-            background: white;
-            border-radius: 12px;
-            padding: 40px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 600px;
-        }
-        
-        .card-header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        
-        .card-title {
-            font-size: 2rem;
-            color: #333;
-            margin-bottom: 10px;
-        }
-        
-        .card-subtitle {
-            color: #666;
-            font-size: 1rem;
-        }
-        
-        .registration-form {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-        
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-        
-        .form-label {
-            font-weight: 600;
-            color: #333;
-        }
-        
-        .form-input, .form-select {
-            padding: 12px;
-            border: 2px solid #e1e5e9;
-            border-radius: 6px;
-            font-size: 1rem;
-            transition: border-color 0.3s;
-        }
-        
-        .form-input:focus, .form-select:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-        
-        .btn-submit {
-            background: #667eea;
-            color: white;
-            padding: 15px 30px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-top: 10px;
-        }
-        
-        .btn-submit:hover {
-            background: #5a67d8;
-            transform: translateY(-2px);
-        }
-        
-        /* Footer */
-        .footer {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            text-align: center;
-            padding: 20px;
-            font-size: 0.9rem;
-        }
-        
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            .header {
-                flex-direction: column;
-                gap: 15px;
-                padding: 20px;
-            }
-            
-            .registration-card {
-                padding: 30px 20px;
-            }
-            
-            .form-row {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
-</head>
-<body>
-    <!-- Header Navigation -->
-    <header class="header">
-        <a href="/" class="logo">
-            🏠 BlueDwarf
-        </a>
-        
-        <nav class="nav-center">
-            <a href="#" class="nav-link" onclick="openModal('aboutModal')">About</a>
-            <a href="#" class="nav-link" onclick="openModal('contactModal')">Contact</a>
-        </nav>
-        
-        <div class="nav-right">
-            <a href="/login" class="btn btn-login">Login</a>
-        </div>
-    </header>
-    
-    <!-- Main Content -->
-    <main class="main-content">
-        <div class="registration-card">
-            <div class="card-header">
-                <h1 class="card-title">Professional Registration</h1>
-                <p class="card-subtitle">Join our network of verified professionals</p>
-            </div>
-            
-            <form class="registration-form" method="POST">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">Full Name *</label>
-                        <input type="text" name="full_name" class="form-input" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Phone Number *</label>
-                        <input type="tel" name="phone" class="form-input" required>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Email Address *</label>
-                    <input type="email" name="email" class="form-input" required>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Business Address *</label>
-                    <input type="text" name="business_address" class="form-input" required>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label class="form-label">License Number *</label>
-                        <input type="text" name="license_number" class="form-input" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Website Domain</label>
-                        <input type="url" name="domain" class="form-input" placeholder="https://yourwebsite.com">
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Profession *</label>
-                    <select name="profession" class="form-select" required>
-                        <option value="">Select your profession</option>
-                        <option value="real_estate_agent">Real Estate Agent</option>
-                        <option value="mortgage_lender">Mortgage Lender</option>
-                        <option value="real_estate_attorney">Real Estate Attorney</option>
-                        <option value="property_inspector">Property Inspector</option>
-                        <option value="insurance_agent">Insurance Agent</option>
-                        <option value="property_manager">Property Manager</option>
-                        <option value="contractor">General Contractor</option>
-                        <option value="electrician">Electrician</option>
-                        <option value="plumber">Plumber</option>
-                        <option value="hvac_technician">HVAC Technician</option>
-                        <option value="other">Other</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Service ZIP Codes *</label>
-                    <input type="text" name="service_zip_codes" class="form-input" 
-                           placeholder="95814, 95815, 95816" 
-                           title="Enter ZIP codes separated by commas" required>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Password *</label>
-                    <input type="password" name="password" class="form-input" required>
-                </div>
-                
-                <button type="submit" class="btn-submit">
-                    Continue to License Verification →
-                </button>
-            </form>
-        </div>
-    </main>
-    
-    <!-- Footer -->
-    <footer class="footer">
-        © 2024 Elite Marketing Lab LLC. All rights reserved.<br>
-        support@bluedwarf.io
-    </footer>
-</body>
-</html>
-    ''')
 
 @app.route('/verify-license')
 def verify_license():
@@ -2207,12 +2365,48 @@ def verification_complete():
 <html>
 <head>
     <title>Verification Complete - BlueDwarf</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            color: white;
+            text-align: center;
+        }
+        .container {
+            background: white;
+            color: #333;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+        }
+        h1 { color: #667eea; margin-bottom: 20px; }
+        p { margin-bottom: 15px; line-height: 1.6; }
+        a { 
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin-top: 20px;
+            transition: background 0.3s;
+        }
+        a:hover { background: #5a67d8; }
+    </style>
 </head>
 <body>
-    <h1>🎉 Verification Submitted!</h1>
-    <p>Your professional license verification has been submitted successfully.</p>
-    <p>You will receive an email notification once the verification is complete.</p>
-    <a href="/">Return to Home</a>
+    <div class="container">
+        <h1>🎉 Verification Submitted!</h1>
+        <p>Your professional license verification has been submitted successfully.</p>
+        <p>You will receive an email notification once the verification is complete.</p>
+        <a href="/">Return to Home</a>
+    </div>
 </body>
 </html>
     ''')
