@@ -2258,7 +2258,7 @@ VERIFY_LICENSE_TEMPLATE = '''
             
             <div class="verification-container">
                 <p style="margin-bottom: 30px; color: #666; font-size: 16px;">
-                    Please complete the verification process below. You will need to upload your professional license and take a selfie for identity verification.
+                    Please complete the verification process below. You will need to upload your professional license, photo identification and take a selfie for identity verification.
                 </p>
                 
                 <div id="sumsub-websdk-container" class="sumsub-container">
