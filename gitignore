@@ -1,0 +1,86 @@
+# Environment variables - NEVER COMMIT THESE
+.env
+.env.*
+.env.local
+.env.production
+.env.staging
+.env.bluedwarf
+*.env
+
+# API Keys and Secrets
+config/secrets.py
+secrets.json
+api_keys.txt
+stripe_keys.txt
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+bluedwarf.db
+
+# Logs
+logs/
+*.log
+error.log
+access.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Backup files
+*.backup
+*.bak
+backups/
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Node modules (if any)
+node_modules/
+npm-debug.log*
+
+# Coverage reports
+htmlcov/
+.coverage
+coverage.xml
+*.cover
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Security sensitive files
+private_key.pem
+*.key
+*.crt
+*.p12
+*.pfx
